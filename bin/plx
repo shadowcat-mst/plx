@@ -223,6 +223,7 @@ plx - Perl Layout Executor
   plx --libs                             # Show PERL5LIB entries
   plx --paths                            # Show additional PATH entries
   plx command arg1 arg2                  # Execute command from PATH
-  plx bin/script arg1 arg2               # Run script from PWD
+  plx script arg1 arg2                   # Run script from bin/
+  plx ./file arg1 arg2                   # Run file from PWD
 
 =cut
