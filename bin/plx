@@ -141,7 +141,7 @@ sub exec_file {
   my @exec = @args;
   if ($cmd eq 'perl') {
     unshift @exec, $self->layout_perl;
-  } elsif ($cmd =~ m{/}) {
+  } elsif ($cmd =~ m{/} or $cmd =~ m{^-}) {
     unshift @exec, $self->layout_perl, $cmd;
   } elsif (
     -f (my $bin_file = $fs->catfile($self->layout_base_dir, 'bin', $cmd))
