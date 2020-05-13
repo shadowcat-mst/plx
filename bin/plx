@@ -161,6 +161,7 @@ sub run_command_perl {
 
 sub run_command_set_perl {
   my ($self, $new_perl) = @_;
+  barf "plx --set-perl /path/to/some/bin/perl" unless $new_perl;
   barf "Not executable: $new_perl" unless -x $new_perl;
   my $perl_link = $fs->catfile($self->layout_conf_dir, 'perl');
   if (-e $perl_link) {
@@ -174,12 +175,32 @@ sub run_command_libs {
   say for @{$self->layout_all_lib_dirs};
 }
 
+sub run_command_paths {
+  local $ENV{PATH} = '';
+  $self->setup_env;
+  say for split ':', $ENV{PATH};
+}
+
+sub run_command_help {
+  die <<'END';
+Usage: plx <cmd> <args>
+
+  plx --help                             # This output
+  plx --perl                             # Which perl will plx exec
+  plx --set-perl /path/to/some/bin/perl  # Set perl binary
+  plx --libs                             # Show PERL5LIB entries
+  plx --paths                            # Show additional PATH entries
+  plx command arg1 arg2                  # Execute command from PATH
+  plx bin/script arg1 arg2               # Run script from PWD
+END
+}
+
 sub run {
   my ($self, $cmd, @args) = @_;
-  barf "plx <cmd> <args>" unless $cmd;
+  $self->run_command_help unless $cmd;
   if ($cmd =~ s/^--//) {
     barf "Can't invoke command ${cmd} without config dir"
-      unless $self->layout_conf_dir;
+      unless $self->layout_conf_dir or $cmd eq 'help';
     my $method = join('_', 'run_command', split '-', $cmd);
     if (my $code = $self->can($method)) {
       return $self->$code(@args);
