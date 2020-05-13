@@ -135,10 +135,15 @@ sub exec_file {
     unshift @exec, $self->layout_perl;
   } elsif ($cmd =~ m{/}) {
     unshift @exec, $self->layout_perl, $cmd;
+  } elsif (
+    -f (my $bin_file = $fs->catfile($self->layout_base_dir, 'bin', $cmd))
+  ) {
+    unshift @exec, $self->layout_perl, $bin_file;
   } else {
     unshift @exec, $cmd;
   }
   $self->setup_env;
+  no warnings 'exec';
   exec(@exec) or barf "exec of (".join(' ', @exec).") failed: $!";
 }
 
