@@ -163,6 +163,9 @@ sub run_command_set_perl {
   my ($self, $new_perl) = @_;
   barf "plx --set-perl /path/to/some/bin/perl" unless $new_perl;
   barf "Not executable: $new_perl" unless -x $new_perl;
+  unless (-d (my $dir = $fs->catdir($run_from, '.plx'))) {
+    mkdir($dir) or barf "Couldn't create ${dir}: $!";
+  }
   my $perl_link = $fs->catfile($self->layout_conf_dir, 'perl');
   if (-e $perl_link) {
     unlink($perl_link) or barf "Couldn't unlink ${perl_link}: $!";
@@ -190,8 +193,6 @@ sub run {
   my ($self, $cmd, @args) = @_;
   $self->run_command_help unless $cmd;
   if ($cmd =~ s/^--//) {
-    barf "Can't invoke command ${cmd} without config dir"
-      unless $self->layout_conf_dir or $cmd eq 'help';
     my $method = join('_', 'run_command', split '-', $cmd);
     if (my $code = $self->can($method)) {
       return $self->$code(@args);
