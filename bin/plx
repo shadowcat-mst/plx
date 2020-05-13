@@ -108,6 +108,12 @@ sub _build_layout_all_lib_dirs {
 }
 
 sub setup_env {
+  {
+    my $perl_dirname = File::Basename::dirname($self->layout_perl);
+    unless (grep $_ eq $perl_dirname, split ':', $ENV{PATH}) {
+      $ENV{PATH} = join(':', $perl_dirname, $ENV{PATH}||());
+    }
+  }
   local @INC = @INC;
   lib->import(my @all = @{$self->layout_all_lib_dirs});
   my @lib_dirs = do {
@@ -119,12 +125,6 @@ sub setup_env {
     }
   };
   $ENV{PERL5LIB} = join(':', @lib_dirs, $ENV{PERL5LIB}||());
-  {
-    my $perl_dirname = File::Basename::dirname($self->layout_perl);
-    unless (grep $_ eq $perl_dirname, split ':', $ENV{PATH}) {
-      $ENV{PATH} = join(':', $perl_dirname, $ENV{PATH}||());
-    }
-  }
   return;
 }
 
