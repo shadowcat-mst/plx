@@ -1,1 +1,192 @@
 #!/usr/bin/env perl
+
+use 5.010;
+
+package Perl::Layout::Executor;
+
+use Config;
+
+BEGIN {
+  if ($ENV{PERL_LOCAL_LIB_ROOT}) {
+    eval { require local::lib; local::lib->import('--deactivate-all') };
+  }
+  delete @ENV{grep /^PERL/, keys %ENV};
+  my @inc = @Config{qw(vendorarch vendorlibexp archlibexp privlibexp)};
+  @INC = @inc;
+  package Perl::Layout::Executor::_self;
+  use overload
+    '%{}' => sub {
+      my $self = do { package DB; my @meh = caller(1); $DB::args[0] };
+      $self;
+    },
+    fallback => 1,
+  ;
+  sub AUTOLOAD {
+    my ($meth) = (our $AUTOLOAD =~ /([^:]+)$/);
+    shift;
+    my $self = do { package DB; my @meh = caller(1); $DB::args[0] };
+    $self->$meth(@_);
+  }
+}
+
+use strict;
+use warnings;
+use feature 'say';
+use File::Spec;
+use File::Basename ();
+use Cwd ();
+use lib ();
+
+sub barf { die "$_[0]\n" }
+
+my $self = bless([], 'Perl::Layout::Executor::_self');
+
+my $run_from = Cwd::getcwd;
+
+my $fs = 'File::Spec';
+
+sub new {
+  my $class = shift;
+  bless @_ ? @_ > 1 ? {@_} : {%{$self}} : {}, ref $class || $class;
+}
+
+sub layout_base_dir {
+  $self->{layout_base_dir} //= $self->_build_layout_base_dir
+}
+sub layout_conf_dir {
+  $self->{layout_conf_dir} //= $self->_build_layout_conf_dir
+}
+sub layout_perl {
+  $self->{layout_perl} //= $self->_build_layout_perl
+}
+sub layout_local_libs {
+  $self->{layout_local_libs} //= $self->_build_layout_local_libs
+}
+sub layout_extra_lib_dirs {
+  $self->{layout_extra_lib_dirs} //= $self->_build_layout_extra_lib_dirs
+}
+sub layout_all_lib_dirs {
+  $self->{layout_all_lib_dirs} //= $self->_build_layout_all_lib_dirs
+}
+
+sub _build_layout_base_dir {
+  # we will walk upwards later
+  if (grep -d $_, map $fs->catdir($run_from, $_), qw(.git .plx)) {
+    return $run_from;
+  }
+  return '';
+}
+
+sub _build_layout_conf_dir {
+  return '' unless my $base_dir = $self->layout_base_dir;
+  my $conf_dir = $fs->catdir($base_dir, '.plx');
+  return -d $conf_dir ? $conf_dir : '';
+}
+
+sub _build_layout_perl {
+  return $^X unless my $conf_dir = $self->layout_conf_dir;
+  my $perl_link = $fs->catfile($conf_dir, 'perl');
+  return -l $perl_link ? readlink($perl_link) : $^X;
+}
+
+sub _build_layout_local_libs {
+  return [] unless my $base_dir = $self->layout_base_dir;
+  return [ grep -d $_, map $fs->catdir($base_dir, $_), qw(local devel) ];
+}
+
+sub _build_layout_extra_lib_dirs {
+  return [] unless my $base_dir = $self->layout_base_dir;
+  return [ grep -d $_, $fs->catdir($base_dir, 'lib') ];
+}
+
+sub _build_layout_all_lib_dirs {
+  return [
+    @{$self->layout_extra_lib_dirs},
+    (map $fs->catdir($_, qw(lib perl5)),
+      @{$self->layout_local_libs}),
+  ]
+}
+
+sub setup_env {
+  local @INC = @INC;
+  lib->import(my @all = @{$self->layout_all_lib_dirs});
+  my @lib_dirs = do {
+    if (eval { require local::lib; 1 }) {
+      local::lib->import($_) for @{$self->layout_local_libs};
+      @{$self->layout_extra_lib_dirs};
+    } else {
+      @all;
+    }
+  };
+  $ENV{PERL5LIB} = join(':', @lib_dirs, $ENV{PERL5LIB}||());
+  {
+    my $perl_dirname = File::Basename::dirname($self->layout_perl);
+    unless (grep $_ eq $perl_dirname, split ':', $ENV{PATH}) {
+      $ENV{PATH} = join(':', $perl_dirname, $ENV{PATH}||());
+    }
+  }
+  return;
+}
+
+sub exec_file {
+  my ($self, $cmd, @args) = @_;
+  my @exec = @args;
+  if ($cmd eq 'perl') {
+    unshift @exec, $self->layout_perl;
+  } elsif ($cmd =~ m{/}) {
+    unshift @exec, $self->layout_perl, $cmd;
+  } else {
+    unshift @exec, $cmd;
+  }
+  $self->setup_env;
+  exec(@exec) or barf "exec of (".join(' ', @exec).") failed: $!";
+}
+
+sub run_command_cpanm {
+  my ($self, @args) = @_;
+  my $cpanm = $fs->catfile($self->layout_conf_dir, 'cpanm');
+  unless (-f $cpanm) {
+    require File::Fetch;
+    my $fetch = File::Fetch->new(uri => 'http://raw.githubusercontent.com/miyagawa/cpanminus/devel/App-cpanminus/cpanm');
+    no warnings 'once';
+    local $File::Fetch::BLACKLIST = [ qw(LWP HTTP::Tiny) ];
+    $fetch->fetch(to => $self->layout_conf_dir);
+  }
+  $self->exec_file($cpanm, @args);
+}
+
+sub run_command_perl {
+  say $self->layout_perl;
+}
+
+sub run_command_set_perl {
+  my ($self, $new_perl) = @_;
+  barf "Not executable: $new_perl" unless -x $new_perl;
+  my $perl_link = $fs->catfile($self->layout_conf_dir, 'perl');
+  if (-e $perl_link) {
+    unlink($perl_link) or barf "Couldn't unlink ${perl_link}: $!";
+  }
+  symlink($new_perl, $perl_link)
+    or barf "Couldn't link ${new_perl} to ${perl_link}: $!";
+}
+
+sub run_command_libs {
+  say for @{$self->layout_all_lib_dirs};
+}
+
+sub run {
+  my ($self, $cmd, @args) = @_;
+  barf "plx <cmd> <args>" unless $cmd;
+  if ($cmd =~ s/^--//) {
+    barf "Can't invoke command ${cmd} without config dir"
+      unless $self->layout_conf_dir;
+    my $method = join('_', 'run_command', split '-', $cmd);
+    if (my $code = $self->can($method)) {
+      return $self->$code(@args);
+    }
+    barf "No command for ${cmd}";
+  }
+  return $self->exec_file($cmd, @args);
+}
+
+caller() ? 1 : __PACKAGE__->new->run(@ARGV);
