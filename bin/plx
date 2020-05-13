@@ -114,17 +114,25 @@ sub setup_env {
       $ENV{PATH} = join(':', $perl_dirname, $ENV{PATH}||());
     }
   }
-  local @INC = @INC;
-  lib->import(my @all = @{$self->layout_all_lib_dirs});
-  my @lib_dirs = do {
-    if (eval { require local::lib; 1 }) {
-      local::lib->import($_) for @{$self->layout_local_libs};
-      @{$self->layout_extra_lib_dirs};
-    } else {
-      @all;
-    }
-  };
-  $ENV{PERL5LIB} = join(':', @lib_dirs, $ENV{PERL5LIB}||());
+  {
+    my @lib_dirs = do {
+      if (eval { require local::lib; 1 }) {
+        local::lib->import($_) for @{$self->layout_local_libs};
+        @{$self->layout_extra_lib_dirs};
+      } else {
+        @{$self->layout_all_lib_dirs};
+      }
+    };
+    $ENV{PERL5LIB} = join(':', @lib_dirs, $ENV{PERL5LIB}||());
+  }
+  {
+    open my $site_fh, '-|', $self->layout_perl, '-MConfig', '-e',
+      'print join(",", @Config{qw(sitearch sitelibexp)})'
+      or barf "Failed to start ${\$self->layout_perl} to get site libs: $!";
+    my $site_libs = <$site_fh>;
+    close $site_fh;
+    $ENV{PERL5OPT} = '-M-lib='.$site_libs;
+  }
   return;
 }
 
@@ -158,6 +166,7 @@ sub run_command_cpanm {
     local $File::Fetch::BLACKLIST = [ qw(LWP HTTP::Tiny) ];
     $fetch->fetch(to => $self->layout_conf_dir);
   }
+  $self->setup_env;
   $self->exec_file($cpanm, @args);
 }
 
@@ -182,6 +191,12 @@ sub run_command_set_perl {
   }
   symlink($new_perl, $perl_link)
     or barf "Couldn't link ${new_perl} to ${perl_link}: $!";
+}
+
+sub run_command_clear_perl {
+  return unless my $conf_dir = $self->layout_conf_dir;
+  return unless -e (my $perl_link = $fs->catfile($conf_dir, 'perl'));
+  unlink($perl_link) or barf "Couldn't unlink ${perl_link}: $!";
 }
 
 sub run_command_libs {
