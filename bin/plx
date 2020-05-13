@@ -225,10 +225,10 @@ plx - Perl Layout Executor
   plx --help                             # This output
   plx --perl                             # Which perl will plx exec
   plx --set-perl /path/to/some/bin/perl  # Set perl binary
-  plx --libs                             # Show PERL5LIB entries
-  plx --paths                            # Show additional PATH entries
-  plx command arg1 arg2                  # Execute command from PATH
+  plx --libs                             # Show $PERL5LIB entries
+  plx --paths                            # Show additional $PATH entries
+  plx command arg1 arg2                  # Execute command from $PATH
   plx script arg1 arg2                   # Run script from bin/
-  plx ./file arg1 arg2                   # Run file from PWD
+  plx ./file arg1 arg2                   # Run file from $PWD
 
 =cut
