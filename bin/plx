@@ -169,10 +169,7 @@ sub run_action_cmd {
 
 sub run_action_perl {
   my ($self, @call) = @_;
-  unless (@call) {
-    say $self->layout_perl;
-    return;
-  }
+  return $self->run_config_perl_show unless (@call);
   $self->run_action_exec($self->layout_perl, @call);
 }
 
@@ -216,7 +213,23 @@ sub ensure_conf_dir {
   }
 }
 
-sub run_action_setperl {
+sub run_action_config {
+  my ($self, $config, @args) = @_;
+  barf "No config name provided" unless $config;
+  barf "Unknown config key ${config}"
+    unless my $show = $self->can("run_config_${config}_show");
+  return $self->$show unless @args;
+  my ($subcmd, @rest) = @args;
+  barf "Invalid subcommand ${subcmd} for config key ${config}"
+    unless my $code = $self->can("run_config_${config}_${subcmd}");
+  return $self->$code(@rest);
+}
+
+sub run_config_perl_show {
+  say $self->layout_perl;
+}
+
+sub run_config_perl_set {
   my ($self, $new_perl) = @_;
   barf "plx --set-perl /path/to/some/bin/perl" unless $new_perl;
   unless ($new_perl =~ m{/}) {
@@ -243,7 +256,7 @@ sub run_action_setperl {
     or barf "Couldn't link ${new_perl} to ${perl_link}: $!";
 }
 
-sub run_action_clearperl {
+sub run_config_perl_clear {
   return unless my $conf_dir = $self->layout_conf_dir;
   return unless -e (my $perl_link = $fs->catfile($conf_dir, 'perl'));
   unlink($perl_link) or barf "Couldn't unlink ${perl_link}: $!";
@@ -290,11 +303,13 @@ plx - Perl Layout Executor
   plx --help                             # This output
 
   plx --perl                             # Which perl will plx exec
-  plx --setperl  /path/to/some/bin/perl  # Select perl binary
-  plx --setperl  perl-5.xx.y             # Select a perlbrew perl binary
-  plx --clearperl                        # Revert to system perl
   plx --libs                             # Show $PERL5LIB entries
   plx --paths                            # Show additional $PATH entries
+
+  plx --config perl                      # Show perl binary
+  plx --config perl set /path/to/perl    # Select perl binary
+  plx --config perl set perl-5.xx.y      # Select a perlbrew perl binary
+  plx --config perl clear                # Revert to system perl
 
   plx --exec <cmd> <args>                # exec()s with env vars set
   plx --perl <args>                      # Run perl with args
@@ -319,6 +334,7 @@ plx - Perl Layout Executor
   plx -E '...'                           # runs perl 
   plx script-in-dev <args>               # runs script in dev/
   plx script-in-bin <args>               # runs script in bin/
+  plx script/in/cwd <args>               # runs script in cwd
   plx program <args>                     # runs program from plx $PATH
 
 =head1 ACTIONS
