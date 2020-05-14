@@ -146,7 +146,7 @@ sub setup_env {
   return;
 }
 
-sub exec_file {
+sub run_action_command {
   my ($self, $cmd, @args) = @_;
   my @exec = @args;
   if ($cmd eq 'perl') {
@@ -181,7 +181,7 @@ sub run_action_cpanm {
     $fetch->fetch(to => $self->layout_conf_dir);
   }
   $self->setup_env;
-  $self->exec_file($cpanm, @args);
+  $self->run_action_command($cpanm, @args);
 }
 
 sub run_action_perl {
@@ -252,7 +252,7 @@ sub run {
     }
     barf "No command for ${cmd}";
   }
-  return $self->exec_file($cmd, @args);
+  return $self->run_action_command($cmd, @args);
 }
 
 caller() ? 1 : __PACKAGE__->new->run(@ARGV);
@@ -267,15 +267,16 @@ plx - Perl Layout Executor
 
   plx --help                             # This output
   plx --perl                             # Which perl will plx exec
-  plx --set-perl /path/to/some/bin/perl  # Set perl binary
-  plx --set-perl perl-5.xx.y             # Set perl binary to a perlbrew perl
+  plx --set-perl /path/to/some/bin/perl  # Select perl binary
+  plx --set-perl perl-5.xx.y             # Select a perlbrew perl binary
   plx --clear-perl                       # Revert to system perl
   plx --libs                             # Show $PERL5LIB entries
   plx --paths                            # Show additional $PATH entries
   plx --cpanm <args>                     # Run fatpacked cpanm to bootstrap
-  plx command arg1 arg2                  # Execute command from $PATH
-  plx script arg1 arg2                   # Run script from bin/
-  plx ./file arg1 arg2                   # Run file from $PWD
+  plx --command <cmd> <args>             # Runs one of the below options:
+    plx command arg1 arg2                # Execute command from $PATH
+    plx script arg1 arg2                 # Run script from bin/
+    plx ./file arg1 arg2                 # Run file from $PWD
 
 =head1 ACTIONS
 
