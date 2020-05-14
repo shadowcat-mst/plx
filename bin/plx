@@ -192,16 +192,27 @@ sub run_action_exec {
   exec(@exec) or barf "exec of (".join(' ', @exec).") failed: $!";
 }
 
+sub fetch_cpanm {
+  require File::Fetch;
+  my $fetch = File::Fetch->new(uri => 'http://raw.githubusercontent.com/miyagawa/cpanminus/devel/App-cpanminus/cpanm');
+  no warnings 'once';
+  local $File::Fetch::BLACKLIST = [ qw(LWP HTTP::Tiny) ];
+  $fetch->fetch(to => $self->layout_conf_dir);
+  return;
+}
+
 sub run_action_cpanm {
   my ($self, @args) = @_;
   $self->ensure_conf_dir;
   my $cpanm = $fs->catfile($self->layout_conf_dir, 'cpanm');
+  if (@args and $args[0] eq '--self-upgrade') {
+    if (-f $cpanm) {
+      unlink($cpanm) or barf "Failed to unlink old ${cpanm}: $!";
+    }
+    return $self->fetch_cpanm;
+  }
   unless (-f $cpanm) {
-    require File::Fetch;
-    my $fetch = File::Fetch->new(uri => 'http://raw.githubusercontent.com/miyagawa/cpanminus/devel/App-cpanminus/cpanm');
-    no warnings 'once';
-    local $File::Fetch::BLACKLIST = [ qw(LWP HTTP::Tiny) ];
-    $fetch->fetch(to => $self->layout_conf_dir);
+    $self->fetch_cpanm;
   }
   $self->setup_env;
   $self->run_action_cmd($cpanm, @args);
@@ -302,11 +313,12 @@ plx - Perl Layout Executor
 
   plx --help                             # This output
 
-  plx --perl                             # Which perl will plx exec
+  plx --perl                             # Show perl binary
   plx --libs                             # Show $PERL5LIB entries
   plx --paths                            # Show additional $PATH entries
 
   plx --config perl                      # Show perl binary
+  plx --config perl show                 # Show perl binary
   plx --config perl set /path/to/perl    # Select perl binary
   plx --config perl set perl-5.xx.y      # Select a perlbrew perl binary
   plx --config perl clear                # Revert to system perl
@@ -345,9 +357,11 @@ Prints out the usage information (i.e. the L</SYNOPSIS>) for plx.
 
 =head2 --perl
 
-Prints the perl binary that plx will use to execute things
+Without arguments: prints the perl binary that plx will use to execute things.
 
-=head2 --set-perl
+With arguments: Executes perl with those arguments.
+
+=head2 --config perl set
 
 If the argument contains a / character, it is assumed to be a perl binary
 and C<plx> checks that it's executable then records it as the current perl.
@@ -355,7 +369,7 @@ and C<plx> checks that it's executable then records it as the current perl.
 If not, C<plx> attempts to resolve it as a L<perlbrew> binary name and if
 successful records that binary as the current perl.
 
-=head2 --clear-perl
+=head2 --config perl clear
 
 Clears the C<plx> perl binary setting and reverts the config to whatever is
 available in C<$PATH>.
