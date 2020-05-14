@@ -12,8 +12,7 @@ BEGIN {
     eval { require local::lib; local::lib->import('--deactivate-all') };
   }
   delete @ENV{grep /^PERL/, keys %ENV};
-  my @inc = @Config{qw(vendorarch vendorlibexp archlibexp privlibexp)};
-  @INC = @inc;
+  @INC = @{[ @Config{qw(vendorarch vendorlibexp archlibexp privlibexp)} ]};
   package Perl::Layout::Executor::_self;
   use overload
     '%{}' => sub {
