@@ -146,7 +146,7 @@ sub setup_env {
   return;
 }
 
-sub run_action_command {
+sub cmd_to_exec {
   my ($self, $cmd, @args) = @_;
   my @exec = @args;
   if ($cmd eq 'perl') {
@@ -164,6 +164,16 @@ sub run_action_command {
   } else {
     unshift @exec, $cmd;
   }
+  return @exec;
+}
+
+sub run_action_cmd {
+  my ($self, @all) = @_;
+  $self->run_action_exec($self->cmd_to_exec(@all));
+}
+
+sub run_action_exec {
+  my ($self, @exec) = @_;
   $self->setup_env;
   no warnings 'exec';
   exec(@exec) or barf "exec of (".join(' ', @exec).") failed: $!";
@@ -181,7 +191,7 @@ sub run_action_cpanm {
     $fetch->fetch(to => $self->layout_conf_dir);
   }
   $self->setup_env;
-  $self->run_action_command($cpanm, @args);
+  $self->run_action_cmd($cpanm, @args);
 }
 
 sub run_action_perl {
@@ -252,7 +262,7 @@ sub run {
     }
     barf "No command for ${cmd}";
   }
-  return $self->run_action_command($cmd, @args);
+  return $self->run_action_cmd($cmd, @args);
 }
 
 caller() ? 1 : __PACKAGE__->new->run(@ARGV);
@@ -273,10 +283,11 @@ plx - Perl Layout Executor
   plx --libs                             # Show $PERL5LIB entries
   plx --paths                            # Show additional $PATH entries
   plx --cpanm <args>                     # Run fatpacked cpanm to bootstrap
-  plx --command <cmd> <args>             # Runs one of the below options:
+  plx --cmd <cmd> <args>                 # Runs one of the below options:
     plx command arg1 arg2                # Execute command from $PATH
     plx script arg1 arg2                 # Run script from bin/
     plx ./file arg1 arg2                 # Run file from $PWD
+  plx --exec <exec>                      # Raw exec, used by --cmd
 
 =head1 ACTIONS
 
