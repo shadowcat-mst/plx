@@ -169,7 +169,7 @@ sub exec_file {
   exec(@exec) or barf "exec of (".join(' ', @exec).") failed: $!";
 }
 
-sub run_command_cpanm {
+sub run_action_cpanm {
   my ($self, @args) = @_;
   $self->ensure_conf_dir;
   my $cpanm = $fs->catfile($self->layout_conf_dir, 'cpanm');
@@ -184,7 +184,7 @@ sub run_command_cpanm {
   $self->exec_file($cpanm, @args);
 }
 
-sub run_command_perl {
+sub run_action_perl {
   say $self->layout_perl;
 }
 
@@ -194,7 +194,7 @@ sub ensure_conf_dir {
   }
 }
 
-sub run_command_set_perl {
+sub run_action_set_perl {
   my ($self, $new_perl) = @_;
   barf "plx --set-perl /path/to/some/bin/perl" unless $new_perl;
   unless ($new_perl =~ m{/}) {
@@ -221,32 +221,32 @@ sub run_command_set_perl {
     or barf "Couldn't link ${new_perl} to ${perl_link}: $!";
 }
 
-sub run_command_clear_perl {
+sub run_action_clear_perl {
   return unless my $conf_dir = $self->layout_conf_dir;
   return unless -e (my $perl_link = $fs->catfile($conf_dir, 'perl'));
   unlink($perl_link) or barf "Couldn't unlink ${perl_link}: $!";
 }
 
-sub run_command_libs {
+sub run_action_libs {
   say for @{$self->layout_all_lib_dirs};
 }
 
-sub run_command_paths {
+sub run_action_paths {
   local $ENV{PATH} = '';
   $self->setup_env;
   say for split ':', $ENV{PATH};
 }
 
-sub run_command_help {
+sub run_action_help {
   require Pod::Usage;
   Pod::Usage::pod2usage();
 }
 
 sub run {
   my ($self, $cmd, @args) = @_;
-  $self->run_command_help unless $cmd;
+  $self->run_action_help unless $cmd;
   if ($cmd =~ s/^--//) {
-    my $method = join('_', 'run_command', split '-', $cmd);
+    my $method = join('_', 'run_action', split '-', $cmd);
     if (my $code = $self->can($method)) {
       return $self->$code(@args);
     }
