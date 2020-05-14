@@ -7,6 +7,7 @@ package Perl::Layout::Executor;
 use Config;
 
 BEGIN {
+  our %orig_env = %ENV;
   if ($ENV{PERL_LOCAL_LIB_ROOT}) {
     eval { require local::lib; local::lib->import('--deactivate-all') };
   }
@@ -38,6 +39,8 @@ use Cwd ();
 use lib ();
 
 sub barf { die "$_[0]\n" }
+
+sub stderr { warn "$_[0]\n" }
 
 my $self = bless([], 'Perl::Layout::Executor::_self');
 
@@ -107,6 +110,14 @@ sub _build_layout_all_lib_dirs {
   ]
 }
 
+sub slurp_command {
+  my ($self, @cmd) = @_;
+  open my $site_fh, '-|', @cmd
+    or barf "Failed to start command (".join(' ', @cmd)."): $!";
+  my @slurp = <$site_fh>;
+  return @slurp;
+}
+
 sub setup_env {
   {
     my $perl_dirname = File::Basename::dirname($self->layout_perl);
@@ -126,11 +137,10 @@ sub setup_env {
     $ENV{PERL5LIB} = join(':', @lib_dirs, $ENV{PERL5LIB}||());
   }
   {
-    open my $site_fh, '-|', $self->layout_perl, '-MConfig', '-e',
-      'print join(",", @Config{qw(sitearch sitelibexp)})'
-      or barf "Failed to start ${\$self->layout_perl} to get site libs: $!";
-    my $site_libs = <$site_fh>;
-    close $site_fh;
+    my ($site_libs) = $self->slurp_command(
+      $self->layout_perl, '-MConfig', '-e',
+        'print join(",", @Config{qw(sitearch sitelibexp)})'
+    );
     $ENV{PERL5OPT} = '-M-lib='.$site_libs;
   }
   return;
@@ -183,6 +193,20 @@ sub ensure_conf_dir {
 sub run_command_set_perl {
   my ($self, $new_perl) = @_;
   barf "plx --set-perl /path/to/some/bin/perl" unless $new_perl;
+  unless ($new_perl =~ m{/}) {
+    stderr "Resolving perl ${new_perl} via perlbrew";
+    require File::Which;
+    local %ENV = our %orig_env;
+    barf "Couldn't find perlbrew in \$PATH"
+      unless my $perlbrew = File::Which::which('perlbrew');
+    my @perls = map /(\S+)/, $self->slurp_command($perlbrew, 'list');
+    barf "No such perlbrew perl ${new_perl}"
+      unless grep $_ eq $new_perl, @perls;
+    ($new_perl) = $self->slurp_command(
+      $perlbrew, qw(exec --with), $new_perl, qw(perl -e), 'print $^X'
+    );
+    chomp $new_perl;
+  }
   barf "Not executable: $new_perl" unless -x $new_perl;
   $self->ensure_conf_dir;
   my $perl_link = $fs->catfile($self->layout_conf_dir, 'perl');
