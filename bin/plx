@@ -277,7 +277,7 @@ plx - Perl Layout Executor
   plx script arg1 arg2                   # Run script from bin/
   plx ./file arg1 arg2                   # Run file from $PWD
 
-=head1 COMMANDS
+=head1 ACTIONS
 
 =head2 --help
 
