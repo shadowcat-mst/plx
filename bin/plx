@@ -154,6 +154,10 @@ sub exec_file {
   } elsif ($cmd =~ m{/} or $cmd =~ m{^-}) {
     unshift @exec, $self->layout_perl, $cmd;
   } elsif (
+    -f (my $dev_file = $fs->catfile($self->layout_base_dir, 'dev', $cmd))
+  ) {
+    unshift @exec, $self->layout_perl, $dev_file;
+  } elsif (
     -f (my $bin_file = $fs->catfile($self->layout_base_dir, 'bin', $cmd))
   ) {
     unshift @exec, $self->layout_perl, $bin_file;
@@ -311,8 +315,8 @@ demand. Intended for bootstrapping or for minimising installed modules.
 
 =head2 script
 
-If C<plx> is passed a plain name and that exists as a filename within C<bin/>
-then the file will be called using C<perl>.
+If C<plx> is passed a plain name and that exists as a filename within C<dev/>
+or C<bin/> then the file will be called using C<perl>.
 
 =head2 ./file
 
@@ -321,8 +325,8 @@ called using C<perl>.
 
 =head2 command
 
-If C<plx> is passed a name without a C</> character that does not exist in
-C<bin/> then it calls it as a normal command name, respecting the C<$PATH>
+If C<plx> is passed a name without a C</> character that does not exist as an
+L</script> then it calls it as a normal command name, respecting the C<$PATH>
 as set up by the layout.
 
 =cut
