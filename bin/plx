@@ -145,30 +145,47 @@ sub setup_env {
   return;
 }
 
-sub cmd_to_exec {
+sub run_action_cmd {
   my ($self, $cmd, @args) = @_;
-  my @exec = @args;
+
   if ($cmd eq 'perl') {
-    unshift @exec, $self->layout_perl;
-  } elsif ($cmd =~ m{/} or $cmd =~ m{^-}) {
-    unshift @exec, $self->layout_perl, $cmd;
-  } elsif (
-    -f (my $dev_file = $fs->catfile($self->layout_base_dir, 'dev', $cmd))
-  ) {
-    unshift @exec, $self->layout_perl, $dev_file;
-  } elsif (
-    -f (my $bin_file = $fs->catfile($self->layout_base_dir, 'bin', $cmd))
-  ) {
-    unshift @exec, $self->layout_perl, $bin_file;
-  } else {
-    unshift @exec, $cmd;
+    return $self->run_action_perl(@args);
   }
-  return @exec;
+
+  if ($cmd =~ m{/} or $cmd =~ m{^-}) {
+    return $self->run_action_perl($cmd, @args);
+  }
+
+  if (-f $fs->catfile($self->layout_base_dir, 'dev', $cmd)) {
+    return $self->run_action_dev($cmd, @args);
+  }
+
+  if (-f $fs->catfile($self->layout_base_dir, 'bin', $cmd)) {
+    return $self->run_action_bin($cmd, @args);
+  }
+
+  $self->run_action_exec($cmd, @args);
 }
 
-sub run_action_cmd {
-  my ($self, @all) = @_;
-  $self->run_action_exec($self->cmd_to_exec(@all));
+sub run_action_perl {
+  my ($self, @call) = @_;
+  unless (@call) {
+    say $self->layout_perl;
+    return;
+  }
+  $self->run_action_exec($self->layout_perl, @call);
+}
+
+sub run_action_dev {
+  my ($self, $cmd, @args) = @_;
+  my $file = $fs->catfile($self->layout_base_dir, 'dev', $cmd);
+  $self->run_action_perl($file, @args);
+}
+
+sub run_action_bin {
+  my ($self, $cmd, @args) = @_;
+  my $file = $fs->catfile($self->layout_base_dir, 'bin', $cmd);
+  $self->run_action_perl($file, @args);
 }
 
 sub run_action_exec {
@@ -193,17 +210,13 @@ sub run_action_cpanm {
   $self->run_action_cmd($cpanm, @args);
 }
 
-sub run_action_perl {
-  say $self->layout_perl;
-}
-
 sub ensure_conf_dir {
   unless (-d (my $dir = $fs->catdir($run_from, '.plx'))) {
     mkdir($dir) or barf "Couldn't create ${dir}: $!";
   }
 }
 
-sub run_action_set_perl {
+sub run_action_setperl {
   my ($self, $new_perl) = @_;
   barf "plx --set-perl /path/to/some/bin/perl" unless $new_perl;
   unless ($new_perl =~ m{/}) {
@@ -230,7 +243,7 @@ sub run_action_set_perl {
     or barf "Couldn't link ${new_perl} to ${perl_link}: $!";
 }
 
-sub run_action_clear_perl {
+sub run_action_clearperl {
   return unless my $conf_dir = $self->layout_conf_dir;
   return unless -e (my $perl_link = $fs->catfile($conf_dir, 'perl'));
   unlink($perl_link) or barf "Couldn't unlink ${perl_link}: $!";
@@ -275,18 +288,38 @@ plx - Perl Layout Executor
 =head1 SYNOPSIS
 
   plx --help                             # This output
+
   plx --perl                             # Which perl will plx exec
-  plx --set-perl /path/to/some/bin/perl  # Select perl binary
-  plx --set-perl perl-5.xx.y             # Select a perlbrew perl binary
-  plx --clear-perl                       # Revert to system perl
+  plx --setperl  /path/to/some/bin/perl  # Select perl binary
+  plx --setperl  perl-5.xx.y             # Select a perlbrew perl binary
+  plx --clearperl                        # Revert to system perl
   plx --libs                             # Show $PERL5LIB entries
   plx --paths                            # Show additional $PATH entries
-  plx --cpanm <args>                     # Run fatpacked cpanm to bootstrap
-  plx --cmd <cmd> <args>                 # Runs one of the below options:
-    plx command arg1 arg2                # Execute command from $PATH
-    plx script arg1 arg2                 # Run script from bin/
-    plx ./file arg1 arg2                 # Run file from $PWD
-  plx --exec <exec>                      # Raw exec, used by --cmd
+
+  plx --exec <cmd> <args>                # exec()s with env vars set
+  plx --perl <args>                      # Run perl with args
+  plx --bin <script> <args>              # Run script from bin/
+  plx --dev <script> <args>              # Run script from dev/
+  plx --cpanm <args>                     # Run fatpacked cpanm
+
+  plx --cmd <cmd> <args>                 # DWIM command:
+  
+    cmd = perl           -> --perl <args>
+    cmd = -<flag>        -> --perl -<flag> <args>
+    cmd = some/file      -> --perl some/file <args>
+    cmd = ./file         -> --perl ./file <args>
+    cmd = name ->
+      exists dev/<name>  -> --dev <name> <args>
+      exists bin/<name>  -> --bin <name> <args>
+      else               -> --exec <name> <args>
+  
+  plx <something> <args>                 # equivalent to --cmd so:
+ 
+  plx perl <args>                        # runs perl
+  plx -E '...'                           # runs perl 
+  plx script-in-dev <args>               # runs script in dev/
+  plx script-in-bin <args>               # runs script in bin/
+  plx program <args>                     # runs program from plx $PATH
 
 =head1 ACTIONS
 
