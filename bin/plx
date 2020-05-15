@@ -247,14 +247,16 @@ sub run_config_perl_set {
   my ($self, $new_perl) = @_;
   barf "plx --set-perl /path/to/some/bin/perl" unless $new_perl;
   unless ($new_perl =~ m{/}) {
-    stderr "Resolving perl ${new_perl} via perlbrew";
+    $new_perl = "perl-${new_perl}" if $new_perl =~ /^5/;
+    stderr "Resolving perl '${new_perl}' via perlbrew";
     require File::Which;
     local %ENV = our %orig_env;
     barf "Couldn't find perlbrew in \$PATH"
       unless my $perlbrew = File::Which::which('perlbrew');
-    my @perls = map /(\S+)/, $self->slurp_command($perlbrew, 'list');
-    barf "No such perlbrew perl ${new_perl}"
-      unless grep $_ eq $new_perl, @perls;
+    my @list = $self->slurp_command($perlbrew, 'list');
+    barf join(
+      '', "No such perlbrew perl '${new_perl}', choose from:\n\n", @list
+    ) unless grep $_ eq $new_perl, map /(\S+)/, @list;
     ($new_perl) = $self->slurp_command(
       $perlbrew, qw(exec --with), $new_perl, qw(perl -e), 'print $^X'
     );
