@@ -110,8 +110,10 @@ sub _build_layout_libspec_config {
 sub _build_layout_lib_specs {
   my $base_dir = $self->layout_base_dir;
   [
-    map { [ $_->[0] =~ /\.(.*)$/, $fs->rel2abs($_->[1], $base_dir) ] }
-      @{$self->layout_libspec_config}
+    map { [
+      $_->[0] =~ /\.(.*)$/,
+      Cwd::realpath($fs->rel2abs($_->[1], $base_dir))
+    ] } @{$self->layout_libspec_config}
   ]
 }
 
