@@ -313,12 +313,6 @@ sub run_config_perl_set {
   $self->ensure_link($spec_link, $perl_spec);
 }
 
-sub run_config_perl_clear {
-  return unless my $conf_dir = $self->layout_conf_dir;
-  return unless -e (my $perl_link = $fs->catfile($conf_dir, 'perl'));
-  unlink($perl_link) or barf "Couldn't unlink ${perl_link}: $!";
-}
-
 sub run_config_libspec_show {
   my @ent = @{$self->layout_libspec_config};
   my $max = List::Util::max(map length($_->[0]), @ent);
@@ -388,9 +382,13 @@ plx - Perl Layout Executor
 
   plx --config perl                      # Show perl binary
   plx --config perl show                 # Show perl binary
-  plx --config perl set /path/to/perl    # Select perl binary
-  plx --config perl set perl-5.xx.y      # Select a perlbrew perl binary
-  plx --config perl clear                # Revert to system perl
+  plx --config perl set /path/to/perl    # Select exact perl binary
+  plx --config perl set perl-5.xx.y      # Select perl via $PATH or perlbrew
+
+  plx --config libspec                   # Show lib specifications
+  plx --config libspec show              # Show lib specifications
+  plx --config libspec add <name> <path> # Add lib specification
+  plx --config libspec del <name> <path> # Delete lib specification
 
   plx --exec <cmd> <args>                # exec()s with env vars set
   plx --perl <args>                      # Run perl with args
