@@ -1,18 +1,23 @@
 #!/usr/bin/env perl
 
-use 5.010;
-
 package Perl::Layout::Executor;
 
+use strict;
+use warnings;
+use File::Spec;
+use File::Basename ();
+use Cwd ();
+use lib ();
 use Config;
+use File::Which ();
+use List::Util ();
+
+BEGIN { our %orig_env = %ENV }
+use local::lib '--deactivate-all';
+BEGIN { delete @ENV{grep /^PERL/, keys %ENV} }
+no lib @Config{qw(sitearch sitelibexp)};
 
 BEGIN {
-  our %orig_env = %ENV;
-  if ($ENV{PERL_LOCAL_LIB_ROOT}) {
-    eval { require local::lib; local::lib->import('--deactivate-all') };
-  }
-  delete @ENV{grep /^PERL/, keys %ENV};
-  @INC = @{[ @Config{qw(vendorarch vendorlibexp archlibexp privlibexp)} ]};
   package Perl::Layout::Executor::_self;
   use overload
     '%{}' => sub {
@@ -29,27 +34,19 @@ BEGIN {
   }
 }
 
-use strict;
-use warnings;
-use feature 'say';
-use File::Spec;
-use File::Basename ();
-use Cwd ();
-use lib ();
-
 sub barf { die "$_[0]\n" }
 
 sub stderr { warn "$_[0]\n" }
 
-my $self = bless([], 'Perl::Layout::Executor::_self');
+sub say { print "$_[0]\n" }
 
-my $run_from = Cwd::getcwd;
+my $self = bless([], 'Perl::Layout::Executor::_self');
 
 my $fs = 'File::Spec';
 
 sub new {
   my $class = shift;
-  bless @_ ? @_ > 1 ? {@_} : {%{$self}} : {}, ref $class || $class;
+  bless @_ ? @_ > 1 ? {@_} : {%{$_[0]}} : {}, ref $class || $class;
 }
 
 sub layout_base_dir {
@@ -61,79 +58,96 @@ sub layout_conf_dir {
 sub layout_perl {
   $self->{layout_perl} //= $self->_build_layout_perl
 }
-sub layout_local_libs {
-  $self->{layout_local_libs} //= $self->_build_layout_local_libs
+sub layout_libspec_dir {
+  $self->{layout_libspec_dir} //= $self->_build_layout_libspec_dir
 }
-sub layout_extra_lib_dirs {
-  $self->{layout_extra_lib_dirs} //= $self->_build_layout_extra_lib_dirs
+sub layout_libspec_config {
+  $self->{layout_libspec_config} //= $self->_build_layout_libspec_config
 }
-sub layout_all_lib_dirs {
-  $self->{layout_all_lib_dirs} //= $self->_build_layout_all_lib_dirs
+sub layout_lib_specs {
+  $self->{layout_lib_specs} //= $self->_build_layout_lib_specs
 }
 
 sub _build_layout_base_dir {
-  # we will walk upwards later
-  if (grep -d $_, map $fs->catdir($run_from, $_), qw(.git .plx)) {
-    return $run_from;
-  }
-  return '';
+  # we will walk upwards later (we don't check if the directory exists
+  # because setup actions may use this path)
+  return Cwd::getcwd();
 }
 
 sub _build_layout_conf_dir {
   return '' unless my $base_dir = $self->layout_base_dir;
   my $conf_dir = $fs->catdir($base_dir, '.plx');
-  return -d $conf_dir ? $conf_dir : '';
+  barf ".plx directory does not exist" unless -d $conf_dir;
+  return $conf_dir;
 }
 
 sub _build_layout_perl {
   return $^X unless my $conf_dir = $self->layout_conf_dir;
   my $perl_link = $fs->catfile($conf_dir, 'perl');
-  return -l $perl_link ? readlink($perl_link) : $^X;
+  barf ".plx/perl symlink does not exist" unless -l $perl_link;
+  my $perl_bin = readlink($perl_link);
+  barf "perl binary ${perl_bin} not executable" unless -x $perl_bin;
+  return $perl_bin;
 }
 
-sub _build_layout_local_libs {
-  return [] unless my $base_dir = $self->layout_base_dir;
-  return [ grep -d $_, map $fs->catdir($base_dir, $_), qw(local devel) ];
+sub _build_layout_libspec_dir {
+  $fs->catdir($self->layout_conf_dir, 'libs');
 }
 
-sub _build_layout_extra_lib_dirs {
-  return [] unless my $base_dir = $self->layout_base_dir;
-  return [ grep -d $_, $fs->catdir($base_dir, 'lib') ];
+sub _build_layout_libspec_config {
+  my $libspec_dir = $self->layout_libspec_dir;
+  [
+    map {
+      [ $_, readlink($fs->catfile($libspec_dir, $_)) ]
+    } do {
+      opendir my($dh), $libspec_dir;
+      my @ent = readdir($dh);
+      grep -l $fs->catfile($libspec_dir, $_), sort @ent;
+    }
+  ]
 }
 
-sub _build_layout_all_lib_dirs {
-  return [
-    @{$self->layout_extra_lib_dirs},
-    (map $fs->catdir($_, qw(lib perl5)),
-      @{$self->layout_local_libs}),
+sub _build_layout_lib_specs {
+  my $base_dir = $self->layout_base_dir;
+  [
+    map { [ $_->[0] =~ /\.(.*)$/, $fs->rel2abs($_->[1], $base_dir) ] }
+      @{$self->layout_libspec_config}
   ]
 }
 
 sub slurp_command {
   my ($self, @cmd) = @_;
-  open my $site_fh, '-|', @cmd
+  open my $slurp_fh, '-|', @cmd
     or barf "Failed to start command (".join(' ', @cmd)."): $!";
-  my @slurp = <$site_fh>;
+  my @slurp = <$slurp_fh>;
   return @slurp;
+}
+
+sub prepend_env {
+  my ($self, $env, @parts) = @_;
+  $ENV{$env} = join(':', @parts, $ENV{$env}||());
+}
+
+sub setup_env_for_ll {
+  my ($self, $path) = @_;
+  local::lib->import($path);
+}
+
+sub setup_env_for_dir {
+  my ($self, $path) = @_;
+  $self->prepend_env(PERL5LIB => $path) if -d $path;
 }
 
 sub setup_env {
   {
     my $perl_dirname = File::Basename::dirname($self->layout_perl);
     unless (grep $_ eq $perl_dirname, split ':', $ENV{PATH}) {
-      $ENV{PATH} = join(':', $perl_dirname, $ENV{PATH}||());
+      $self->prepend_env(PATH => $perl_dirname);
     }
   }
-  {
-    my @lib_dirs = do {
-      if (eval { require local::lib; 1 }) {
-        local::lib->import($_) for @{$self->layout_local_libs};
-        @{$self->layout_extra_lib_dirs};
-      } else {
-        @{$self->layout_all_lib_dirs};
-      }
-    };
-    $ENV{PERL5LIB} = join(':', @lib_dirs, $ENV{PERL5LIB}||());
+  foreach my $lib_spec (@{$self->layout_lib_specs}) {
+    my ($type, $path) = @$lib_spec;
+    $self->${\"setup_env_for_${type}"}($path);
   }
   {
     my ($site_libs) = $self->slurp_command(
@@ -143,6 +157,18 @@ sub setup_env {
     $ENV{PERL5OPT} = '-M-lib='.$site_libs;
   }
   return;
+}
+
+sub run_action_init {
+  my ($self, $perl) = @_;
+  $self->run_config_perl_set($perl||'perl');
+  my $libspec_dir = $self->layout_libspec_dir;
+  mkdir($libspec_dir) unless -d $libspec_dir;
+  $self->run_config_libspec_add(@$_) for (
+    [ '25local.ll' => 'local' ],
+    [ '50devel.ll' => 'devel' ],
+    [ '75lib.dir' => 'lib' ],
+  );
 }
 
 sub run_action_cmd {
@@ -222,7 +248,7 @@ sub run_action_cpanm {
 }
 
 sub ensure_conf_dir {
-  unless (-d (my $dir = $fs->catdir($run_from, '.plx'))) {
+  unless (-d (my $dir = $fs->catdir($self->layout_base_dir, '.plx'))) {
     mkdir($dir) or barf "Couldn't create ${dir}: $!";
   }
 }
@@ -243,33 +269,46 @@ sub run_config_perl_show {
   say $self->layout_perl;
 }
 
+sub ensure_link {
+  my ($self, $link, $to) = @_;
+  if (-e $link) {
+    unlink($link) or barf "Couldn't unlink ${link}: $!";
+  }
+  symlink($to, $link)
+    or barf "Couldn't link ${link} to ${to}: $!";
+}
+
 sub run_config_perl_set {
   my ($self, $new_perl) = @_;
-  barf "plx --set-perl /path/to/some/bin/perl" unless $new_perl;
+  barf "plx --config perl set <perl>" unless $new_perl;
+  my $perl_spec = $new_perl;
   unless ($new_perl =~ m{/}) {
     $new_perl = "perl-${new_perl}" if $new_perl =~ /^5/;
-    stderr "Resolving perl '${new_perl}' via perlbrew";
     require File::Which;
-    local %ENV = our %orig_env;
-    barf "Couldn't find perlbrew in \$PATH"
-      unless my $perlbrew = File::Which::which('perlbrew');
-    my @list = $self->slurp_command($perlbrew, 'list');
-    barf join(
-      '', "No such perlbrew perl '${new_perl}', choose from:\n\n", @list
-    ) unless grep $_ eq $new_perl, map /(\S+)/, @list;
-    ($new_perl) = $self->slurp_command(
-      $perlbrew, qw(exec --with), $new_perl, qw(perl -e), 'print $^X'
-    );
-    chomp $new_perl;
+    stderr "Resolving perl '${new_perl}' via PATH";
+    if (my $resolved = File::Which::which($new_perl)) {
+      $new_perl = $resolved;
+    } else {
+      stderr "Resolving perl '${new_perl}' via perlbrew";
+      local %ENV = our %orig_env;
+      barf "Couldn't find perlbrew in \$PATH"
+        unless my $perlbrew = File::Which::which('perlbrew');
+      my @list = $self->slurp_command($perlbrew, 'list');
+      barf join(
+        '', "No such perlbrew perl '${new_perl}', choose from:\n\n", @list
+      ) unless grep $_ eq $new_perl, map /(\S+)/, @list;
+      ($new_perl) = $self->slurp_command(
+        $perlbrew, qw(exec --with), $new_perl, qw(perl -e), 'print $^X'
+      );
+      chomp $new_perl;
+    }
   }
   barf "Not executable: $new_perl" unless -x $new_perl;
   $self->ensure_conf_dir;
   my $perl_link = $fs->catfile($self->layout_conf_dir, 'perl');
-  if (-e $perl_link) {
-    unlink($perl_link) or barf "Couldn't unlink ${perl_link}: $!";
-  }
-  symlink($new_perl, $perl_link)
-    or barf "Couldn't link ${new_perl} to ${perl_link}: $!";
+  $self->ensure_link($perl_link, $new_perl);
+  my $spec_link = $fs->catfile($self->layout_conf_dir, 'perl.spec');
+  $self->ensure_link($spec_link, $perl_spec);
 }
 
 sub run_config_perl_clear {
@@ -278,15 +317,38 @@ sub run_config_perl_clear {
   unlink($perl_link) or barf "Couldn't unlink ${perl_link}: $!";
 }
 
-sub run_action_libs {
-  say for @{$self->layout_all_lib_dirs};
+sub run_config_libspec_show {
+  my @ent = @{$self->layout_libspec_config};
+  my $max = List::Util::max(map length($_->[0]), @ent);
+  say sprintf("%-${max}s  %s", @$_) for @ent;
 }
 
-sub run_action_paths {
-  local $ENV{PATH} = '';
-  $self->setup_env;
-  say for split ':', $ENV{PATH};
+sub run_config_libspec_add {
+  my ($self, $name, $path) = @_;
+  barf "plx --config libspec add <name> <path>" unless $name and $path;
+  my $link = $fs->catfile($self->layout_libspec_dir, $name);
+  $self->ensure_link($link, $path);
 }
+
+sub run_config_libspec_del {
+  my ($self, $name) = @_;
+  barf "plx --config libspec add <name>" unless $name;
+  my $link = $fs->catfile($self->layout_libspec_dir, $name);
+  if (-e $link) {
+    unlink($link) or barf "Couldn't unlink ${link}: $!";
+  }
+}
+
+sub show_env {
+  my ($self, $env) = @_;
+  local $ENV{$env} = '';
+  $self->setup_env;
+  say $_ for split ':', $ENV{$env};
+}
+
+sub run_action_libs { $self->show_env('PERL5LIB') }
+
+sub run_action_paths { $self->show_env('PATH') }
 
 sub run_action_help {
   require Pod::Usage;
