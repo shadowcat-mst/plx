@@ -17,7 +17,7 @@ use local::lib '--deactivate-all';
 BEGIN { delete @ENV{grep /^PERL/, keys %ENV} }
 no lib @Config{qw(sitearch sitelibexp)};
 
-BEGIN {
+my $self = do {
   package Perl::Layout::Executor::_self;
   use overload
     '%{}' => sub {
@@ -32,15 +32,14 @@ BEGIN {
     my $self = do { package DB; my @meh = caller(1); $DB::args[0] };
     $self->$meth(@_);
   }
-}
+  bless([], __PACKAGE__);
+};
 
 sub barf { die "$_[0]\n" }
 
 sub stderr { warn "$_[0]\n" }
 
 sub say { print "$_[0]\n" }
-
-my $self = bless([], 'Perl::Layout::Executor::_self');
 
 sub new {
   my $class = shift;
