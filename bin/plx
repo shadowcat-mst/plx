@@ -42,8 +42,6 @@ sub say { print "$_[0]\n" }
 
 my $self = bless([], 'Perl::Layout::Executor::_self');
 
-my $fs = 'File::Spec';
-
 sub new {
   my $class = shift;
   bless @_ ? @_ > 1 ? {@_} : {%{$_[0]}} : {}, ref $class || $class;
@@ -104,19 +102,19 @@ sub _build_layout_lib_specs {
   [
     map { [
       $_->[0] =~ /\.(.*)$/,
-      Cwd::realpath($fs->rel2abs($_->[1], $base_dir))
+      Cwd::realpath(File::Spec->rel2abs($_->[1], $base_dir))
     ] } @{$self->layout_libspec_config}
   ]
 }
 
 sub layout_file {
   my ($self, @path) = @_;
-  $fs->catfile($self->layout_base_dir, @path);
+  File::Spec->catfile($self->layout_base_dir, @path);
 }
 
 sub layout_dir {
   my ($self, @path) = @_;
-  $fs->catdir($self->layout_base_dir, @path);
+  File::Spec->catdir($self->layout_base_dir, @path);
 }
 
 sub layout_config_file { shift->layout_file('.plx', @_) }
@@ -214,11 +212,11 @@ sub run_action_cmd {
     return $self->run_action_perl($cmd, @args);
   }
 
-  if (-f $fs->catfile($self->layout_base_dir, 'dev', $cmd)) {
+  if (-f $self->layout_file(dev => $cmd)) {
     return $self->run_action_dev($cmd, @args);
   }
 
-  if (-f $fs->catfile($self->layout_base_dir, 'bin', $cmd)) {
+  if (-f $self->layout_file(bin => $cmd)) {
     return $self->run_action_bin($cmd, @args);
   }
 
@@ -233,14 +231,12 @@ sub run_action_perl {
 
 sub run_action_dev {
   my ($self, $cmd, @args) = @_;
-  my $file = $fs->catfile($self->layout_base_dir, 'dev', $cmd);
-  $self->run_action_perl($file, @args);
+  $self->run_action_perl($self->layout_file(dev => $cmd), @args);
 }
 
 sub run_action_bin {
   my ($self, $cmd, @args) = @_;
-  my $file = $fs->catfile($self->layout_base_dir, 'bin', $cmd);
-  $self->run_action_perl($file, @args);
+  $self->run_action_perl($self->layout_file(bin => $cmd), @args);
 }
 
 sub run_action_exec {
@@ -266,7 +262,7 @@ sub run_action_cpanm {
 }
 
 sub ensure_config_dir {
-  unless (-d (my $dir = $fs->catdir($self->layout_base_dir, '.plx'))) {
+  unless (-d (my $dir = $self->layout_dir('.plx'))) {
     mkdir($dir) or barf "Couldn't create ${dir}: $!";
   }
 }
