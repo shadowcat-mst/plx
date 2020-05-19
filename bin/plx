@@ -77,26 +77,18 @@ sub _build_layout_perl {
 }
 
 sub _build_layout_libspec_config {
-  my $libspec_dir = $self->layout_config_dir('libs');
-  [
-    map {
-      [ $_, $self->read_config_entry([ libs => $_ ]) ]
-    } do {
-      opendir my($dh), $libspec_dir;
-      my @ent = readdir($dh);
-      grep -f $self->layout_config_file(libs => $_), sort @ent;
-    }
-  ]
+  opendir my($dh), $self->layout_config_dir('libs');
+  [ grep $_->[1],
+      map [ $_, $self->read_config_entry([ libs => $_ ]) ],
+        sort readdir($dh) ];
 }
 
 sub _build_layout_lib_specs {
   my $base_dir = $self->layout_base_dir;
-  [
-    map { [
+  [ map [
       $_->[0] =~ /\.(.*)$/,
       Cwd::realpath(File::Spec->rel2abs($_->[1], $base_dir))
-    ] } @{$self->layout_libspec_config}
-  ]
+    ], @{$self->layout_libspec_config} ];
 }
 
 sub layout_file {
@@ -122,15 +114,13 @@ sub write_config_entry {
 sub clear_config_entry {
   my ($self, $path) = @_;
   my $file = $self->layout_config_file(ref($path) ? @$path : $path);
-  if (-e $file) {
-    unlink($file) or barf "Failed to unlink ${file}: $!";
-  }
+  unlink($file) or barf "Failed to unlink ${file}: $!" if -e $file;
 }
 
 sub read_config_entry {
   my ($self, $path) = @_;
   my $file = $self->layout_config_file(ref($path) ? @$path : $path);
-  return undef unless -e $file;
+  return undef unless -f $file;
   open my $rfh, '<', $file or die "Couldn't open ${file}: $!";
   chomp(my $value = <$rfh>);
   return $value;
@@ -160,23 +150,19 @@ sub setup_env_for_dir {
 }
 
 sub setup_env {
-  {
-    my $perl_dirname = File::Basename::dirname($self->layout_perl);
-    unless (grep $_ eq $perl_dirname, split ':', $ENV{PATH}) {
-      $self->prepend_env(PATH => $perl_dirname);
-    }
+  my $perl_dirname = File::Basename::dirname($self->layout_perl);
+  unless (grep $_ eq $perl_dirname, split ':', $ENV{PATH}) {
+    $self->prepend_env(PATH => $perl_dirname);
   }
   foreach my $lib_spec (@{$self->layout_lib_specs}) {
     my ($type, $path) = @$lib_spec;
     $self->${\"setup_env_for_${type}"}($path);
   }
-  {
-    my ($site_libs) = $self->slurp_command(
-      $self->layout_perl, '-MConfig', '-e',
-        'print join(",", @Config{qw(sitearch sitelibexp)})'
-    );
-    $ENV{PERL5OPT} = '-M-lib='.$site_libs;
-  }
+  my ($site_libs) = $self->slurp_command(
+    $self->layout_perl, '-MConfig', '-e',
+      'print join(",", @Config{qw(sitearch sitelibexp)})'
+  );
+  $ENV{PERL5OPT} = '-M-lib='.$site_libs;
   return;
 }
 
@@ -220,7 +206,7 @@ sub run_action_cmd {
 
 sub run_action_perl {
   my ($self, @call) = @_;
-  return $self->run_config_perl_show unless (@call);
+  return $self->run_config_perl_show unless @call;
   $self->run_action_exec($self->layout_perl, @call);
 }
 
