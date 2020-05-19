@@ -258,33 +258,19 @@ sub run_action_exec {
   exec(@exec) or barf "exec of (".join(' ', @exec).") failed: $!";
 }
 
-sub fetch_cpanm {
-  require File::Fetch;
-  my $fetch = File::Fetch->new(uri => 'http://raw.githubusercontent.com/miyagawa/cpanminus/devel/App-cpanminus/cpanm');
-  no warnings 'once';
-  local $File::Fetch::BLACKLIST = [ qw(LWP HTTP::Tiny) ];
-  $fetch->fetch(to => $self->layout_config_dir);
-  return;
-}
-
 sub run_action_cpanm {
   my ($self, @args) = @_;
-  $self->ensure_conf_dir;
-  my $cpanm = $fs->catfile($self->layout_config_dir, 'cpanm');
-  if (@args and $args[0] eq '--self-upgrade') {
-    if (-f $cpanm) {
-      unlink($cpanm) or barf "Failed to unlink old ${cpanm}: $!";
-    }
-    return $self->fetch_cpanm;
-  }
+  my $cpanm = do {
+    local %ENV = our %orig_env;
+    barf "Couldn't find cpanm in \$PATH"
+      unless my $cpanm = File::Which::which('cpanm');
+    $cpanm;
+  };
   unless (@args and $args[0] =~ /^-[lL]/) {
     barf "--cpanm args must start with -l or -L to specify target local::lib";
   }
-  unless (-f $cpanm) {
-    $self->fetch_cpanm;
-  }
   $self->setup_env;
-  $self->run_action_cmd($cpanm, @args);
+  $self->run_action_perl($cpanm, @args);
 }
 
 sub ensure_config_dir {
