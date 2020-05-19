@@ -19,18 +19,11 @@ no lib @Config{qw(sitearch sitelibexp)};
 
 my $self = do {
   package Perl::Layout::Executor::_self;
-  use overload
-    '%{}' => sub {
-      my $self = do { package DB; my @meh = caller(1); $DB::args[0] };
-      $self;
-    },
-    fallback => 1,
-  ;
+  sub self { package DB; () = caller(2); $DB::args[0] }
+  use overload '%{}' => sub { self }, fallback => 1;
   sub AUTOLOAD {
     my ($meth) = (our $AUTOLOAD =~ /([^:]+)$/);
-    shift;
-    my $self = do { package DB; my @meh = caller(1); $DB::args[0] };
-    $self->$meth(@_);
+    self->$meth(@_[1..$#_]);
   }
   bless([], __PACKAGE__);
 };
