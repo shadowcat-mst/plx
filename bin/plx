@@ -52,8 +52,8 @@ sub new {
 sub layout_base_dir {
   $self->{layout_base_dir} //= $self->_build_layout_base_dir
 }
-sub layout_conf_dir {
-  $self->{layout_conf_dir} //= $self->_build_layout_conf_dir
+sub layout_config_dir {
+  $self->{layout_config_dir} //= $self->_build_layout_config_dir
 }
 sub layout_perl {
   $self->{layout_perl} //= $self->_build_layout_perl
@@ -74,7 +74,7 @@ sub _build_layout_base_dir {
   return Cwd::getcwd();
 }
 
-sub _build_layout_conf_dir {
+sub _build_layout_config_dir {
   return '' unless my $base_dir = $self->layout_base_dir;
   my $conf_dir = $fs->catdir($base_dir, '.plx');
   barf ".plx directory does not exist" unless -d $conf_dir;
@@ -82,7 +82,7 @@ sub _build_layout_conf_dir {
 }
 
 sub _build_layout_perl {
-  return $^X unless my $conf_dir = $self->layout_conf_dir;
+  return $^X unless my $conf_dir = $self->layout_config_dir;
   my $perl_link = $fs->catfile($conf_dir, 'perl');
   barf ".plx/perl symlink does not exist" unless -l $perl_link;
   my $perl_bin = readlink($perl_link);
@@ -91,7 +91,7 @@ sub _build_layout_perl {
 }
 
 sub _build_layout_libspec_dir {
-  $fs->catdir($self->layout_conf_dir, 'libs');
+  $fs->catdir($self->layout_config_dir, 'libs');
 }
 
 sub _build_layout_libspec_config {
@@ -165,7 +165,7 @@ sub run_action_init {
   my ($self, $perl) = @_;
   $self->run_config_perl_set($perl||'perl');
   $self->ensure_link(
-    $fs->catfile($self->layout_conf_dir, 'format'), 1
+    $fs->catfile($self->layout_config_dir, 'format'), 1
   );
   my $libspec_dir = $self->layout_libspec_dir;
   mkdir($libspec_dir) unless -d $libspec_dir;
@@ -228,14 +228,14 @@ sub fetch_cpanm {
   my $fetch = File::Fetch->new(uri => 'http://raw.githubusercontent.com/miyagawa/cpanminus/devel/App-cpanminus/cpanm');
   no warnings 'once';
   local $File::Fetch::BLACKLIST = [ qw(LWP HTTP::Tiny) ];
-  $fetch->fetch(to => $self->layout_conf_dir);
+  $fetch->fetch(to => $self->layout_config_dir);
   return;
 }
 
 sub run_action_cpanm {
   my ($self, @args) = @_;
   $self->ensure_conf_dir;
-  my $cpanm = $fs->catfile($self->layout_conf_dir, 'cpanm');
+  my $cpanm = $fs->catfile($self->layout_config_dir, 'cpanm');
   if (@args and $args[0] eq '--self-upgrade') {
     if (-f $cpanm) {
       unlink($cpanm) or barf "Failed to unlink old ${cpanm}: $!";
@@ -310,9 +310,9 @@ sub run_config_perl_set {
   }
   barf "Not executable: $new_perl" unless -x $new_perl;
   $self->ensure_conf_dir;
-  my $perl_link = $fs->catfile($self->layout_conf_dir, 'perl');
+  my $perl_link = $fs->catfile($self->layout_config_dir, 'perl');
   $self->ensure_link($perl_link, $new_perl);
-  my $spec_link = $fs->catfile($self->layout_conf_dir, 'perl.spec');
+  my $spec_link = $fs->catfile($self->layout_config_dir, 'perl.spec');
   $self->ensure_link($spec_link, $perl_spec);
 }
 
