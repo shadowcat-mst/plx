@@ -52,14 +52,8 @@ sub new {
 sub layout_base_dir {
   $self->{layout_base_dir} //= $self->_build_layout_base_dir
 }
-sub layout_config_dir {
-  $self->{layout_config_dir} //= $self->_build_layout_config_dir
-}
 sub layout_perl {
   $self->{layout_perl} //= $self->_build_layout_perl
-}
-sub layout_libspec_dir {
-  $self->{layout_libspec_dir} //= $self->_build_layout_libspec_dir
 }
 sub layout_libspec_config {
   $self->{layout_libspec_config} //= $self->_build_layout_libspec_config
@@ -74,11 +68,9 @@ sub _build_layout_base_dir {
   return Cwd::getcwd();
 }
 
-sub _build_layout_config_dir {
-  return '' unless my $base_dir = $self->layout_base_dir;
-  my $conf_dir = $fs->catdir($base_dir, '.plx');
-  barf ".plx directory does not exist" unless -d $conf_dir;
-  return $conf_dir;
+sub ensure_layout_config_dir {
+  barf ".plx directory does not exist"
+    unless -d $self->layout_dir('.plx');
 }
 
 sub _build_layout_perl {
@@ -94,19 +86,15 @@ sub _build_layout_perl {
   return $perl_bin;
 }
 
-sub _build_layout_libspec_dir {
-  $fs->catdir($self->layout_config_dir, 'libs');
-}
-
 sub _build_layout_libspec_config {
-  my $libspec_dir = $self->layout_libspec_dir;
+  my $libspec_dir = $self->layout_config_dir('libs');
   [
     map {
       [ $_, $self->read_config_entry([ libs => $_ ]) ]
     } do {
       opendir my($dh), $libspec_dir;
       my @ent = readdir($dh);
-      grep -f $fs->catfile($libspec_dir, $_), sort @ent;
+      grep -f $self->layout_config_file(libs => $_), sort @ent;
     }
   ]
 }
@@ -121,22 +109,29 @@ sub _build_layout_lib_specs {
   ]
 }
 
+sub layout_file {
+  my ($self, @path) = @_;
+  $fs->catfile($self->layout_base_dir, @path);
+}
+
+sub layout_dir {
+  my ($self, @path) = @_;
+  $fs->catdir($self->layout_base_dir, @path);
+}
+
+sub layout_config_file { shift->layout_file('.plx', @_) }
+sub layout_config_dir { shift->layout_dir('.plx', @_) }
+
 sub write_config_entry {
   my ($self, $path, $value) = @_;
-  my $file = $fs->catfile(
-     $self->layout_config_dir,
-     ref($path) ? @$path : $path
-  );
+  my $file = $self->layout_config_file(ref($path) ? @$path : $path);
   open my $wfh, '>', $file or die "Couldn't open ${file}: $!";
   print $wfh "${value}\n";
 }
 
 sub clear_config_entry {
   my ($self, $path) = @_;
-  my $file = $fs->catfile(
-     $self->layout_config_dir,
-     ref($path) ? @$path : $path
-  );
+  my $file = $self->layout_config_file(ref($path) ? @$path : $path);
   if (-e $file) {
     unlink($file) or barf "Failed to unlink ${file}: $!";
   }
@@ -144,10 +139,7 @@ sub clear_config_entry {
 
 sub read_config_entry {
   my ($self, $path) = @_;
-  my $file = $fs->catfile(
-     $self->layout_config_dir,
-     ref($path) ? @$path : $path
-  );
+  my $file = $self->layout_config_file(ref($path) ? @$path : $path);
   return undef unless -e $file;
   open my $rfh, '<', $file or die "Couldn't open ${file}: $!";
   chomp(my $value = <$rfh>);
@@ -202,7 +194,7 @@ sub run_action_init {
   my ($self, $perl) = @_;
   $self->run_config_perl_set($perl||'perl');
   $self->write_config_entry(format => 1);
-  my $libspec_dir = $self->layout_libspec_dir;
+  my $libspec_dir = $self->layout_config_dir('libs');
   mkdir($libspec_dir) unless -d $libspec_dir;
   $self->run_config_libspec_add(@$_) for (
     [ '25local.ll' => 'local' ],
@@ -368,6 +360,7 @@ sub run_action_help {
 sub run {
   my ($self, $cmd, @args) = @_;
   $self->run_action_help unless $cmd;
+  $self->ensure_layout_config_dir unless $cmd eq '--init';
   if ($cmd =~ s/^--//) {
     my $method = join('_', 'run_action', split '-', $cmd);
     if (my $code = $self->can($method)) {
