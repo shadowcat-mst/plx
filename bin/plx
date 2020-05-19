@@ -75,7 +75,7 @@ sub layout_libspec_config {
 sub layout_lib_specs {
   my $base_dir = $self->layout_base_dir;
   local *_ = sub { Cwd::realpath(File::Spec->rel2abs(shift, $base_dir)) };
-  [ map [ ($_->[0] =~ /\.(.*)$/), _($_->[1]) ],
+  [ map [ ($_->[0] =~ /\.([\.]+)$/), _($_->[1]) ],
       @{$self->layout_libspec_config} ];
 }
 
@@ -237,7 +237,13 @@ sub run_action_cpanm {
 
 sub run_action_config {
   my ($self, $config, @args) = @_;
-  barf "No config name provided" unless $config;
+  unless ($config) {
+    say "# perl";
+    $self->run_config_perl_show;
+    say "# libspec";
+    $self->run_config_libspec_show;
+    return;
+  }
   barf "Unknown config key ${config}"
     unless my $show = $self->can("run_config_${config}_show");
   return $self->$show unless @args;
@@ -322,7 +328,7 @@ sub run_action_help {
 
 sub run {
   my ($self, $cmd, @args) = @_;
-  $self->run_action_help unless $cmd;
+  $self->run_action_help if !$cmd or $cmd eq '--help';
   $self->ensure_layout_config_dir unless $cmd eq '--init';
   if ($cmd =~ s/^--//) {
     my $method = join('_', 'run_action', split '-', $cmd);
@@ -342,13 +348,32 @@ __END__
 
 plx - Perl Layout Executor
 
-=head1 USAGE
+=head1 SYNOPSIS
 
   plx --help                             # This output
 
-  plx --perl                             # Show perl binary
-  plx --libs                             # Show $PERL5LIB entries
-  plx --paths                            # Show additional $PATH entries
+  plx --init <perl>                      # Initialize layout config
+  plx --perl                             # Show layout perl binary
+  plx --libs                             # Show layout $PERL5LIB entries
+  plx --paths                            # Show layout additional $PATH entries
+  plx --cpanm -llocal --installdeps .    # Run cpanm from outside $PATH
+ 
+  plx perl <args>                        # Run perl within layout
+  plx -E '...'                           # (ditto)
+  plx script-in-dev <args>               # Run dev/ script within layout
+  plx script-in-bin <args>               # Run bin/ script within layout
+  plx script/in/cwd <args>               # Run script within layout
+  plx program <args>                     # Run program from layout $PATH
+
+=head1 ACTIONS
+
+  plx --help                             # Print synopsis
+
+  plx --init <perl>                      # Initialize layout config
+  plx --perl                             # Show layout perl binary
+  plx --libs                             # Show layout $PERL5LIB entries
+  plx --paths                            # Show layout additional $PATH entries
+  plx --cpanm -llocal --installdeps .    # Run cpanm from outside $PATH
 
   plx --config perl                      # Show perl binary
   plx --config perl show                 # Show perl binary
@@ -364,7 +389,6 @@ plx - Perl Layout Executor
   plx --perl <args>                      # Run perl with args
   plx --bin <script> <args>              # Run script from bin/
   plx --dev <script> <args>              # Run script from dev/
-  plx --cpanm <args>                     # Run fatpacked cpanm
 
   plx --cmd <cmd> <args>                 # DWIM command:
   
@@ -377,67 +401,148 @@ plx - Perl Layout Executor
       exists bin/<name>  -> --bin <name> <args>
       else               -> --exec <name> <args>
   
-  plx <something> <args>                 # equivalent to --cmd so:
- 
-  plx perl <args>                        # runs perl
-  plx -E '...'                           # runs perl 
-  plx script-in-dev <args>               # runs script in dev/
-  plx script-in-bin <args>               # runs script in bin/
-  plx script/in/cwd <args>               # runs script in cwd
-  plx program <args>                     # runs program from plx $PATH
-
-=head1 ACTIONS
+  plx <something> <args>                 # Shorthand for plx --cmd
 
 =head2 --help
 
 Prints out the usage information (i.e. the L</SYNOPSIS>) for plx.
 
-=head2 --perl
+=head2 --init
 
-Without arguments: prints the perl binary that plx will use to execute things.
+  plx --init                     # resolve 'perl' in $PATH
+  plx --init perl                # (ditto)
+  plx --init 5.28.0              # looks for perl5.28.0 in $PATH
+                                 # or perl-5.28.0 in perlbrew
+  plx --init /path/to/some/perl  # uses the absolute path directly
 
-With arguments: Executes perl with those arguments.
+Initializes the layout.
 
-=head2 --config perl set
+If a perl name is passed, attempts to resolve it via C<$PATH> and C<perlbrew>
+and sets the result as the layout perl; if not looks for just C<perl>.
 
-If the argument contains a / character, it is assumed to be a perl binary
-and C<plx> checks that it's executable then records it as the current perl.
+Creates the following libspec config:
 
-If not, C<plx> attempts to resolve it as a L<perlbrew> binary name and if
-successful records that binary as the current perl.
-
-=head2 --config perl clear
-
-Clears the C<plx> perl binary setting and reverts the config to whatever is
-available in C<$PATH>.
+  25local.ll  local
+  50devel.ll  devel
+  75lib.dir   lib
 
 =head2 --libs
 
 Prints the directories that will be added to C<PERL5LIB>, one per line.
 
+These will include the C<lib/perl5> subdirectory of any C<ll> entry in the
+libspecs, and the directory of any C<dir> entry.
+
 =head2 --paths
 
 Prints the directories that will be added to C<PATH>, one per line.
 
+These will include the containing of the environment's perl binary if not
+already in C<PATH>, followed by the C<bin> directories of any C<ll> entry
+in the libspecs.
+
 =head2 --cpanm
 
-Calls a per-C<plx>-config cpanm, which is fetched from miyagawa's github on
-demand. Intended for bootstrapping or for minimising installed modules.
+  plx --cpanm -Llocal --installdeps .
+  plx --cpanm -ldevel App::Ack
 
-=head2 script
+Finds the C<cpanm> binary in the C<PATH> that C<plx> was executed I<from>,
+and executes it using the layout's perl binary and environment variables.
 
-If C<plx> is passed a plain name and that exists as a filename within C<dev/>
-or C<bin/> then the file will be called using C<perl>.
+Requires the user to specify a L<local::lib> to install into via C<-l> or
+C<-L> in order to avoid installing modules into unexpected places.
 
-=head2 ./file
+=head2 --exec
 
-if C<plx> is passed a name containing a C</> character then that filename is
-called using C<perl>.
+  plx --exec <command> <args>
 
-=head2 command
+Sets up the layout's environment variables and C<exec>s the command.
 
-If C<plx> is passed a name without a C</> character that does not exist as an
-L</script> then it calls it as a normal command name, respecting the C<$PATH>
-as set up by the layout.
+=head2 --perl
+
+  plx --perl
+  plx --perl <options> <script> <args>
+
+Without arguments, sugar for C<--config perl show>.
+
+Otherwise, sets up the layout's environment variables and C<exec>s the
+layout's perl with the given options and arguments.
+
+=head2 --dev
+
+  plx --dev <script> <args>
+
+Runs C<dev/script> ala L<--perl>.
+
+=head2 --bin
+
+  plx --bin <script> <args>
+
+Runs C<bin/script> ala L<--perl>.
+
+=head2 --cmd
+
+  plx --cmd <cmd> <args>                 # DWIM command:
+  
+    cmd = perl           -> --perl <args>
+    cmd = -<flag>        -> --perl -<flag> <args>
+    cmd = some/file      -> --perl some/file <args>
+    cmd = ./file         -> --perl ./file <args>
+    cmd = name ->
+      exists dev/<name>  -> --dev <name> <args>
+      exists bin/<name>  -> --bin <name> <args>
+      else               -> --exec <name> <args>
+
+=head2 --config
+
+  plx --config                     # Show current config
+  plx --config <name>              # Alias for --config <name> show
+  plx --config <name> <operation>  # Invoke config operation
+
+=head3 perl
+
+  plx --config perl show
+  plx --config perl set <spec>
+
+If the spec passed to C<set> contains a C</> character, plx assumes that it's
+an absolute bath and records it as-is.
+
+If not, we go a-hunting.
+
+First, if the spec begins with a C<5>, we replace it with C<perl5>.
+
+Second, we search C<$PATH> for a binary of that name, and record it if so.
+
+Third, if the (current) spec begins C<perl5>, we replace it with C<perl-5>.
+
+Fourth, we search C<$PATH> for a C<perlbrew> binary, and ask it if it has a
+perl named after the spec, and record that if so.
+
+Fifth, we shrug and hope the user can come up with an absolute path next time.
+
+=head3 libspec
+
+  plx --config libspec show
+  plx --config libspec add <name> <spec>
+  plx --config libspec del <name> <spec>
+
+A libspec config entry consists of a name and a spec, and the show output
+prints them space separated one per line, with enough spaces to make the
+specs align:
+
+  25local.ll  local
+  50devel.ll  devel
+  75lib.dir   lib
+
+The part of the name before the last C<.> is not semantically significant to
+plx, but is used for asciibetical sorting of the libspec entries to determine
+in which order to apply them.
+
+The part after must be either C<ll> for a L<local::lib>, or C<dir> for a bare
+L<lib> directory.
+
+When loaded, the spec is (if relative) resolved to an absolute path relative
+to the layout root, then all C<..> entries and symlinks resolved to give a
+final path used to set up the layout environment.
 
 =cut
