@@ -304,12 +304,14 @@ sub run_config_perl_set {
   barf "plx --config perl set <perl>" unless $new_perl;
   my $perl_spec = $new_perl;
   unless ($new_perl =~ m{/}) {
-    $new_perl = "perl-${new_perl}" if $new_perl =~ /^5/;
+    $new_perl = "perl${new_perl}" if $new_perl =~ /^5/;
+    $new_perl =~ s/perl-5/perl5/; # perlbrew name to perl binary
     require File::Which;
     stderr "Resolving perl '${new_perl}' via PATH";
     if (my $resolved = File::Which::which($new_perl)) {
       $new_perl = $resolved;
     } else {
+      $new_perl = s/^perl5/perl-5/; # perl binary to perlbrew name
       $new_perl = $self->resolve_perl_via_perlbrew($new_perl);
     }
   }
