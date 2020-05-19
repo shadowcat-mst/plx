@@ -520,6 +520,11 @@ perl named after the spec, and record that if so.
 
 Fifth, we shrug and hope the user can come up with an absolute path next time.
 
+B<Note:> The original spec passed to C<set> is recorded in C<.plx/perl.spec>,
+so if you intend to share the C<.plx> directory across multiple machines via
+version control or otherwise, remove/exclude the C<.plx/perl> file and plx
+will automatically attempt to re-locate the perl on first invocation.
+
 =head3 libspec
 
   plx --config libspec show
