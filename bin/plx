@@ -45,22 +45,11 @@ sub layout_base_dir {
 sub layout_perl {
   $self->{layout_perl} //= $self->_build_layout_perl
 }
-sub layout_libspec_config {
-  $self->{layout_libspec_config} //= $self->_build_layout_libspec_config
-}
-sub layout_lib_specs {
-  $self->{layout_lib_specs} //= $self->_build_layout_lib_specs
-}
 
 sub _build_layout_base_dir {
   # we will walk upwards later (we don't check if the directory exists
   # because setup actions may use this path)
   return Cwd::getcwd();
-}
-
-sub ensure_layout_config_dir {
-  barf ".plx directory does not exist"
-    unless -d $self->layout_dir('.plx');
 }
 
 sub _build_layout_perl {
@@ -76,19 +65,18 @@ sub _build_layout_perl {
   return $perl_bin;
 }
 
-sub _build_layout_libspec_config {
+sub layout_libspec_config {
   opendir my($dh), $self->layout_config_dir('libs');
   [ grep $_->[1],
       map [ $_, $self->read_config_entry([ libs => $_ ]) ],
         sort readdir($dh) ];
 }
 
-sub _build_layout_lib_specs {
+sub layout_lib_specs {
   my $base_dir = $self->layout_base_dir;
-  [ map [
-      $_->[0] =~ /\.(.*)$/,
-      Cwd::realpath(File::Spec->rel2abs($_->[1], $base_dir))
-    ], @{$self->layout_libspec_config} ];
+  local *_ = sub { Cwd::realpath(File::Spec->rel2abs(shift, $base_dir)) };
+  [ map [ ($_->[0] =~ /\.(.*)$/), _($_->[1]) ],
+      @{$self->layout_libspec_config} ];
 }
 
 sub layout_file {
@@ -99,6 +87,11 @@ sub layout_file {
 sub layout_dir {
   my ($self, @path) = @_;
   File::Spec->catdir($self->layout_base_dir, @path);
+}
+
+sub ensure_layout_config_dir {
+  barf ".plx directory does not exist"
+    unless -d $self->layout_dir('.plx');
 }
 
 sub layout_config_file { shift->layout_file('.plx', @_) }
