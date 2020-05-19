@@ -190,6 +190,9 @@ sub setup_env {
 
 sub run_action_init {
   my ($self, $perl) = @_;
+  unless (-d (my $dir = $self->layout_dir('.plx'))) {
+    mkdir($dir) or barf "Couldn't create ${dir}: $!";
+  }
   $self->run_config_perl_set($perl||'perl');
   $self->write_config_entry(format => 1);
   my $libspec_dir = $self->layout_config_dir('libs');
@@ -261,12 +264,6 @@ sub run_action_cpanm {
   $self->run_action_perl($cpanm, @args);
 }
 
-sub ensure_config_dir {
-  unless (-d (my $dir = $self->layout_dir('.plx'))) {
-    mkdir($dir) or barf "Couldn't create ${dir}: $!";
-  }
-}
-
 sub run_action_config {
   my ($self, $config, @args) = @_;
   barf "No config name provided" unless $config;
@@ -279,9 +276,7 @@ sub run_action_config {
   return $self->$code(@rest);
 }
 
-sub run_config_perl_show {
-  say $self->layout_perl;
-}
+sub run_config_perl_show { say $self->layout_perl }
 
 sub resolve_perl_via_perlbrew {
   my ($self, $perl) = @_;
@@ -316,7 +311,6 @@ sub run_config_perl_set {
     }
   }
   barf "Not executable: $new_perl" unless -x $new_perl;
-  $self->ensure_config_dir;
   $self->write_config_entry('perl.spec' => $perl_spec);
   $self->write_config_entry(perl => $new_perl);
 }
