@@ -25,9 +25,7 @@ ok(!eval { plx '--perl'; 1 }, "Can't run commands against empty dir");
 
 plx '--init';
 
-ok(-l '.plx/perl', 'symlink created');
-
-is(readlink('.plx/perl'), $^X, 'symlink target');
+ok(-f '.plx/perl', 'file created');
 
 plx '--perl';
 
