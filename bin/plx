@@ -164,6 +164,9 @@ sub setup_env {
 sub run_action_init {
   my ($self, $perl) = @_;
   $self->run_config_perl_set($perl||'perl');
+  $self->ensure_link(
+    $fs->catfile($self->layout_conf_dir, 'format'), 1
+  );
   my $libspec_dir = $self->layout_libspec_dir;
   mkdir($libspec_dir) unless -d $libspec_dir;
   $self->run_config_libspec_add(@$_) for (
