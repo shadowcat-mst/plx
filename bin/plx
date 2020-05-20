@@ -365,6 +365,66 @@ plx - Perl Layout Executor
   plx script/in/cwd <args>               # Run script within layout
   plx program <args>                     # Run program from layout $PATH
 
+=head1 WHY PLX
+
+While perl has many tools for configuring per-project development
+environments, using them can still be a little on the lumpy side. With
+L<Carton>, you find yourself running one of
+
+  perl -Ilocal/lib/perl -Ilib bin/myapp
+  carton exec perl -Ilib bin/myapp
+
+With L<App::perlbrew>,
+
+  perlbrew switch perl-5.28.0@libname
+  perl -Ilib bin/myapp
+
+With L<https://github.com/tokuhirom/plenv>,
+
+  plenv exec perl -Ilib bin/myapp
+
+and if you have more than one distinct layer of dependencies, while
+L<local::lib> will happily handle that, integrating it with everything else
+becomes a pain in the buttocks.
+
+As a result of this, your not-so-humble author found himself regularly having
+a miniature perl executor script at the root of git clones that looked
+something like:
+
+  #!/bin/sh
+  eval $(perl -Mlocal::lib=--deactivate-all)
+  export PERL5LIB=$PWD/local/lib/perl5
+  bin=$1
+  shift
+  ~/perl5/perlbrew/perls/perl-5.28.0/bin/$bin "$@"
+
+and then running:
+
+  ./pl perl -Ilib bin/myapp
+
+However, much like back in 2007 frustration with explaining to other
+developers how to set up L<CPAN> to install into C<~/perl5> and how to
+set up one's environment variables to then find the modules so installed
+led to the exercise in rage driven development that first created
+L<local::lib>, walking newbies through the creation and subsequent use of
+such a script was not the most enjoyable experience for anybody involved.
+
+Thus, the creation of this module to reduce the setup process to:
+
+  cpanm App::plx
+  plx --init 5.28.0
+  plx --cpanm -llocal --notest --installdeps .
+
+Follwed by being able to immediately (and even more concisely) run:
+
+  plx myapp
+
+which will execute C<perl -Ilib bin/myapp> with the correct C<perl> and the
+relevant L<local::lib> already in scope.
+
+If this seems of use to you, the L<QUICKSTART> is next and the L<ACTIONS>
+section of this document lists the full capabilities of plx. Onwards!
+
 =head1 QUICKSTART
 
 Let's assume we're going to be working on Foo-Bar, so we start with:
