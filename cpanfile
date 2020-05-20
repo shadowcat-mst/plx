@@ -1,2 +1,2 @@
 requires 'File::Which';
-requries 'local::lib';
+requires 'local::lib';
