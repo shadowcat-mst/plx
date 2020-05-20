@@ -149,7 +149,7 @@ sub setup_env {
   }
   foreach my $lib_spec (@{$self->layout_lib_specs}) {
     my ($type, $path) = @$lib_spec;
-    next unless -d $path;
+    next unless $path and -d $path;
     $self->${\"setup_env_for_${type}"}($path);
   }
   my ($site_libs) = $self->slurp_command(
