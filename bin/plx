@@ -365,6 +365,55 @@ plx - Perl Layout Executor
   plx script/in/cwd <args>               # Run script within layout
   plx program <args>                     # Run program from layout $PATH
 
+=head1 QUICKSTART
+
+Let's assume we're going to be working on Foo-Bar, so we start with:
+
+  git clone git@github.com:arthur-nonymous/Foo-Bar.git
+  cd Foo-Bar
+
+Assuming the perl we'd get from running just C<perl> sufficies, then we
+next run:
+
+  plx --init
+
+If we want a different perl - say, we have a C<perl5.30.1> in our path, or
+a C<perl-5.30.1> built in perlbrew, we'd instead run:
+
+  plx --init 5.30.1
+
+To quickly get our dependencies available, we then run:
+
+  plx --cpanm -llocal --notest --installdeps .
+
+If the project is designed to use L<Carton> and has a C<cpanfile.snapshot>,
+instead we would run:
+
+  plx --cpanm -ldevel --notest Carton
+  plx carton install
+
+If the goal is to test this against our current development version of another
+library, then we'd also want to run:
+
+  plx --config libspec add 40otherlib.dir ../Other-Lib/lib
+
+If we want our ~/perl L<local::lib> available within the plx environment, we
+can add that as the least significant libspec with:
+
+  plx --config libspec add 00tilde.ll $HOME/perl5
+
+At which point, we're ready to go, and can run:
+
+  plx myapp              # to run bin/myapp
+  plx t/foo.t            # to run one test file
+  plx prove              # to run all t/*.t test files
+  plx -E 'say for @INC'  # to run a one liner within the layout
+
+To learn everything else plx is capable of, read on to the L<ACTIONS> section
+coming next.
+
+Have fun!
+
 =head1 ACTIONS
 
   plx --help                             # Print synopsis
