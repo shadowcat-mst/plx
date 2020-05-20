@@ -10,9 +10,9 @@ my ($out, $err);
 sub plx {
   no warnings qw(once redefine);
   ($out, $err) = ([], []);
-  local *Perl::Layout::Executor::say = sub { push @$out, $_[0] };
-  local *Perl::Layout::Executor::stderr = sub { push @$err, $_[0] };
-  Perl::Layout::Executor->new->run(@_);
+  local *App::plx::say = sub { push @$out, $_[0] };
+  local *App::plx::stderr = sub { push @$err, $_[0] };
+  App::plx->new->run(@_);
 }
 
 my $dir = 't/var/basic';
