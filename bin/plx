@@ -372,7 +372,7 @@ Let's assume we're going to be working on Foo-Bar, so we start with:
   git clone git@github.com:arthur-nonymous/Foo-Bar.git
   cd Foo-Bar
 
-Assuming the perl we'd get from running just C<perl> sufficies, then we
+Assuming the perl we'd get from running just C<perl> suffices, then we
 next run:
 
   plx --init
