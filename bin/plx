@@ -284,7 +284,7 @@ sub run_config_perl_set {
     if (my $resolved = File::Which::which($new_perl)) {
       $new_perl = $resolved;
     } else {
-      $new_perl = s/^perl5/perl-5/; # perl binary to perlbrew name
+      $new_perl =~ s/^perl5/perl-5/; # perl binary to perlbrew name
       $new_perl = $self->resolve_perl_via_perlbrew($new_perl);
     }
   }
