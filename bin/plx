@@ -562,6 +562,17 @@ and executes it using the layout's perl binary and environment variables.
 Requires the user to specify a L<local::lib> to install into via C<-l> or
 C<-L> in order to avoid installing modules into unexpected places.
 
+Note that this action exists primarily for bootstrapping, and if you want
+to use a different installer such as L<App::cpm>, you'd install it with:
+
+  plx --cpanm -ldevel App::cpm
+
+and then subsequently run e.g.
+
+  plx cpm -llocal --installdeps .
+
+to install dependencies.
+
 =head2 --exec
 
   plx --exec <command> <args>
