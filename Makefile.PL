@@ -11,4 +11,5 @@ WriteMakefile(
     'local::lib' => 2,
     'File::Which' => 0,
   },
+  EXE_FILES => [ 'bin/plx' ],
 );
