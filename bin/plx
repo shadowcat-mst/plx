@@ -584,6 +584,16 @@ layout's perl with the given options and arguments.
 
 Runs C<dev/script> ala L<--perl>.
 
+Much like the C<devel> L<local::lib> is created to allow for the installation
+of out-of-band dependencies that aren't going to be needed in production, the
+C<dev> directory is supported to allow for the easy addition of development
+time only sugar commands. Note that since C<perl> will re-exec anything with
+a non-perl shebang, one can add wrappers here ala:
+
+  $ cat dev/prove
+  #!/bin/sh
+  exec prove -j8 "$@"
+
 =head2 --bin
 
   plx --bin <script> <args>
