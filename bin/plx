@@ -365,7 +365,8 @@ App::plx - Perl Layout Executor
   plx -E '...'                           # (ditto)
   plx script-in-dev <args>               # Run dev/ script within layout
   plx script-in-bin <args>               # Run bin/ script within layout
-  plx script/in/cwd <args>               # Run script within layout
+  plx ./script <args>                    # Run script within layout
+  plx script/in/cwd <args>               # (ditto)
   plx program <args>                     # Run program from layout $PATH
 
 =head1 WHY PLX

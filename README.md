@@ -66,6 +66,7 @@ such a script was not the most enjoyable experience for anybody involved.
 Thus, the creation of this module to reduce the setup process to:
 
     cpanm App::plx
+    cd MyProject
     plx --init 5.28.0
     plx --cpanm -llocal --notest --installdeps .
 
