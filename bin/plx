@@ -75,7 +75,7 @@ sub layout_libspec_config {
 sub layout_lib_specs {
   my $base_dir = $self->layout_base_dir;
   local *_ = sub { Cwd::realpath(File::Spec->rel2abs(shift, $base_dir)) };
-  [ map [ ($_->[0] =~ /\.([\.]+)$/), _($_->[1]) ],
+  [ map [ ($_->[0] =~ /\.([^.]+)$/), _($_->[1]) ],
       @{$self->layout_libspec_config} ];
 }
 
