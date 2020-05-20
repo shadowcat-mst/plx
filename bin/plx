@@ -569,9 +569,9 @@ to use a different installer such as L<App::cpm>, you'd install it with:
 
 and then subsequently run e.g.
 
-  plx cpm -llocal --installdeps .
+  plx cpm install App::Ack
 
-to install dependencies.
+to install modules.
 
 =head2 --exec
 
