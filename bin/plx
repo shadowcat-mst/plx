@@ -479,16 +479,16 @@ Creates the following libspec config:
 
 Prints the directories that will be added to C<PERL5LIB>, one per line.
 
-These will include the C<lib/perl5> subdirectory of any C<ll> entry in the
-libspecs, and the directory of any C<dir> entry.
+These will include the C<lib/perl5> subdirectory for each C<ll> entry in the
+libspecs, and the directory for each C<dir> entry.
 
 =head2 --paths
 
 Prints the directories that will be added to C<PATH>, one per line.
 
-These will include the containing of the environment's perl binary if not
-already in C<PATH>, followed by the C<bin> directories of any C<ll> entry
-in the libspecs.
+These will include the containing directory of the environment's perl binary
+if not already in C<PATH>, followed by the C<bin> directories of any C<ll>
+entries in the libspecs.
 
 =head2 --cpanm
 
