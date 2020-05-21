@@ -174,7 +174,7 @@ sub run_action_commands {
   my ($self, $filter) = @_;
   my @commands;
   my %seen;
-  foreach my $dirname ('.', 'dev', 'bin') {
+  foreach my $dirname ('dev', 'bin') {
     next unless -d (my $dir = $self->layout_dir($dirname));
     opendir my ($dh), $dir or barf "Couldn't open ${dir}: $!";
     foreach my $entry (sort readdir($dh)) {
