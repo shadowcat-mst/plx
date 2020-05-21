@@ -199,7 +199,7 @@ sub run_action_commands {
     }
   }
   if ($filter) {
-    my $match = $filter =~ m{^/(.+)/$} ? $1 : "^${filter}";
+    my $match = $filter =~ m{^/(.+)/$} ? $1 : qr/^\Q${filter}/;
     @commands = grep { $_->[0] =~ $match } @commands;
   }
   my $max = List::Util::max(map length($_->[0]), @commands);
@@ -567,6 +567,9 @@ Have fun!
       else               -> --exec <name> <args>
   
   plx <something> <args>                 # Shorthand for plx --cmd
+  
+  plx --actions                          # List available actions
+  plx --commands <filter>?               # List available commands
 
 =head2 --help
 
@@ -735,6 +738,24 @@ L<lib> directory.
 When loaded, the spec is (if relative) resolved to an absolute path relative
 to the layout root, then all C<..> entries and symlinks resolved to give a
 final path used to set up the layout environment.
+
+=head2 --actions
+
+  plx --actions
+
+Lists all available actions (i.e. -- based first arguments to plx)
+
+=head2 --commands
+
+  plx --commands         # all commands
+  plx --commands c       # all commands starting with c
+  plx --commands /json/  # all commands matching /json/
+
+Lists available commands, name first, then full path.
+
+If a filter argument is given, treats it as a fixed prefix to filter the
+command list, unless the filter is C</re/> in which case the slashes are
+stripped and the filter is treated as a regexp.
 
 =head1 AUTHOR
 
