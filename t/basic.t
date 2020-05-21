@@ -34,9 +34,9 @@ is_deeply $out, [ $^X ], '--perl output';
 plx qw(--config libspec);
 
 is_deeply $out, [
-  '25local.ll  local',
-  '50devel.ll  devel',
-  '75lib.dir   lib',
+  '25-local.ll  local',
+  '50-devel.ll  devel',
+  '75-lib.dir   lib',
 ], 'libspec config';
 
 done_testing;

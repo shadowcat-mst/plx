@@ -174,9 +174,9 @@ sub run_action_init {
   my $libspec_dir = $self->layout_config_dir('libs');
   mkdir($libspec_dir) unless -d $libspec_dir;
   $self->run_config_libspec_add(@$_) for (
-    [ '25local.ll' => 'local' ],
-    [ '50devel.ll' => 'devel' ],
-    [ '75lib.dir' => 'lib' ],
+    [ '25-local.ll' => 'local' ],
+    [ '50-devel.ll' => 'devel' ],
+    [ '75-lib.dir' => 'lib' ],
   );
 }
 
@@ -536,9 +536,9 @@ and sets the result as the layout perl; if not looks for just C<perl>.
 
 Creates the following libspec config:
 
-  25local.ll  local
-  50devel.ll  devel
-  75lib.dir   lib
+  25-local.ll  local
+  50-devel.ll  devel
+  75-lib.dir   lib
 
 =head2 --libs
 
@@ -670,9 +670,9 @@ A libspec config entry consists of a name and a spec, and the show output
 prints them space separated one per line, with enough spaces to make the
 specs align:
 
-  25local.ll  local
-  50devel.ll  devel
-  75lib.dir   lib
+  25-local.ll  local
+  50-devel.ll  devel
+  75-lib.dir   lib
 
 The part of the name before the last C<.> is not semantically significant to
 plx, but is used for asciibetical sorting of the libspec entries to determine
