@@ -96,6 +96,9 @@ sub layout_dir {
 sub ensure_layout_config_dir {
   barf ".plx directory does not exist"
     unless -d $self->layout_dir('.plx');
+  my $format = $self->read_config_entry('format');
+  barf ".plx directory has no format specifier" unless $format;
+  barf ".plx format ${format} unknown" unless $format eq '1';
 }
 
 sub layout_config_file { shift->layout_file('.plx', @_) }
