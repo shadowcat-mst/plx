@@ -164,15 +164,29 @@ sub setup_env {
   return;
 }
 
+sub run_action_actions {
+  my $stash = do { no strict 'refs'; \%{__PACKAGE__.'::'} };
+  say "--$_" for map /^run_action_(.*)/, sort keys %$stash;
+}
+
 sub run_action_init {
   my ($self, $perl) = @_;
-  unless (-d (my $dir = $self->layout_dir('.plx'))) {
-    mkdir($dir) or barf "Couldn't create ${dir}: $!";
+  my $dir = $self->layout_dir('.plx');
+  if (-d $dir) {
+    if ($perl) {
+      stderr <<END;
+.plx already initialised - if you wanted to set the perl to ${perl} run:
+
+  plx --config perl set ${perl}
+END
+    }
+    return;
   }
+  mkdir($dir) or barf "Couldn't create ${dir}: $!";
   $self->run_config_perl_set($perl||'perl');
   $self->write_config_entry(format => 1);
   my $libspec_dir = $self->layout_config_dir('libs');
-  mkdir($libspec_dir) unless -d $libspec_dir;
+  mkdir($libspec_dir) or barf "Couldn't create ${libspec_dir}: $!";
   $self->run_config_libspec_add(@$_) for (
     [ '25-local.ll' => 'local' ],
     [ '50-devel.ll' => 'devel' ],
