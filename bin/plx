@@ -148,7 +148,8 @@ sub setup_env_for_dir {
 
 sub setup_env {
   my $perl_dirname = File::Basename::dirname($self->layout_perl);
-  unless (grep $_ eq $perl_dirname, split ':', $ENV{PATH}) {
+  our %orig_env;
+  unless (grep $_ eq $perl_dirname, split ':', $orig_env{PATH}) {
     $self->prepend_env(PATH => $perl_dirname);
   }
   foreach my $lib_spec (@{$self->layout_lib_specs}) {
@@ -167,6 +168,42 @@ sub setup_env {
 sub run_action_actions {
   my $stash = do { no strict 'refs'; \%{__PACKAGE__.'::'} };
   say "--$_" for map /^run_action_(.*)/, sort keys %$stash;
+}
+
+sub run_action_commands {
+  my ($self, $filter) = @_;
+  my @commands;
+  my %seen;
+  foreach my $dirname ('.', 'dev', 'bin') {
+    next unless -d (my $dir = $self->layout_dir($dirname));
+    opendir my ($dh), $dir or barf "Couldn't open ${dir}: $!";
+    foreach my $entry (sort readdir($dh)) {
+      next if $entry =~ /^\.+$/;
+      my $file = $self->layout_file($dirname, $entry);
+      next unless -f $file;
+      open my $rfh, '<', $file or die "Couldn't open ${file}: $!";
+      chomp(my $value = <$rfh>);
+      if ($value =~ /^#!/ and !$seen{$entry}++) {
+        push @commands, [ $entry, "${dirname}/${entry}" ];
+      }
+    }
+  }
+  my $path = do { local $ENV{PATH} = ''; $self->setup_env; $ENV{PATH} };
+  foreach my $dir (split ':', $path) {
+    opendir my ($dh), $dir;
+    foreach my $entry (sort readdir($dh)) {
+      next if $entry =~ /^\.+$/;
+      my $file = File::Spec->catfile($dir, $entry);
+      next unless -x $file;
+      push @commands, [ $entry, $file ] unless $seen{$entry}++;
+    }
+  }
+  if ($filter) {
+    my $match = $filter =~ m{^/(.+)/$} ? $1 : "^${filter}";
+    @commands = grep { $_->[0] =~ $match } @commands;
+  }
+  my $max = List::Util::max(map length($_->[0]), @commands);
+  say sprintf("%-${max}s  %s", @$_) for @commands;
 }
 
 sub run_action_init {
