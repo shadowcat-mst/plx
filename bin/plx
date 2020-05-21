@@ -203,7 +203,14 @@ sub run_action_commands {
     @commands = grep { $_->[0] =~ $match } @commands;
   }
   my $max = List::Util::max(map length($_->[0]), @commands);
-  say sprintf("%-${max}s  %s", @$_) for @commands;
+  my $base = $self->layout_base_dir;
+  my $home = $ENV{HOME};
+  foreach my $command (@commands) {
+    my ($name, $path) = @$command;
+    $path =~ s/^\Q${base}\///;
+    $path =~ s/^\Q${home}/~/ if $home;
+    say sprintf("%-${max}s  %s", $name, $path);
+  }
 }
 
 sub run_action_init {
