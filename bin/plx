@@ -269,7 +269,7 @@ sub run_action_cmd {
 
 sub run_action_perl {
   my ($self, @call) = @_;
-  return $self->run_config_perl_show unless @call;
+  return $self->show_config_perl unless @call;
   $self->run_action_exec($self->layout_perl, @call);
 }
 
@@ -299,21 +299,24 @@ sub run_action_config {
   my ($self, $config, @args) = @_;
   unless ($config) {
     say "# perl";
-    $self->run_config_perl_show;
+    $self->show_config_perl;
     say "# libspec";
-    $self->run_config_libspec_show;
+    $self->show_config_libspec;
     return;
   }
   barf "Unknown config key ${config}"
-    unless my $show = $self->can("run_config_${config}_show");
+    unless my $show = $self->can("show_config_${config}");
   return $self->$show unless @args;
+  if (my $code = $self->can("run_config_${config}")) {
+    return $self->$code(@args);
+  }
   my ($subcmd, @rest) = @args;
   barf "Invalid subcommand ${subcmd} for config key ${config}"
     unless my $code = $self->can("run_config_${config}_${subcmd}");
   return $self->$code(@rest);
 }
 
-sub run_config_perl_show { say $self->layout_perl }
+sub show_config_perl { say $self->layout_perl }
 
 sub resolve_perl_via_perlbrew {
   my ($self, $perl) = @_;
@@ -352,7 +355,7 @@ sub run_config_perl_set {
   $self->write_config_entry(perl => $new_perl);
 }
 
-sub run_config_libspec_show {
+sub show_config_libspec {
   my @ent = @{$self->layout_libspec_config};
   my $max = List::Util::max(map length($_->[0]), @ent);
   say sprintf("%-${max}s  %s", @$_) for @ent;
@@ -551,12 +554,10 @@ Have fun!
   plx --cpanm -llocal --installdeps .    # Run cpanm from outside $PATH
 
   plx --config perl                      # Show perl binary
-  plx --config perl show                 # Show perl binary
   plx --config perl set /path/to/perl    # Select exact perl binary
   plx --config perl set perl-5.xx.y      # Select perl via $PATH or perlbrew
 
   plx --config libspec                   # Show lib specifications
-  plx --config libspec show              # Show lib specifications
   plx --config libspec add <name> <path> # Add lib specification
   plx --config libspec del <name> <path> # Delete lib specification
 
@@ -649,7 +650,7 @@ Sets up the layout's environment variables and C<exec>s the command.
   plx --perl
   plx --perl <options> <script> <args>
 
-Without arguments, sugar for C<--config perl show>.
+Without arguments, sugar for C<--config perl>.
 
 Otherwise, sets up the layout's environment variables and C<exec>s the
 layout's perl with the given options and arguments.
@@ -680,12 +681,12 @@ anything with a non-perl shebang, one can add wrappers here ala:
 =head2 --config
 
   plx --config                     # Show current config
-  plx --config <name>              # Alias for --config <name> show
+  plx --config <name>              # Show current <name> config
   plx --config <name> <operation>  # Invoke config operation
 
 =head3 perl
 
-  plx --config perl show
+  plx --config perl
   plx --config perl set <spec>
 
 If the spec passed to C<set> contains a C</> character, plx assumes that it's
@@ -711,7 +712,7 @@ will automatically attempt to re-locate the perl on first invocation.
 
 =head3 libspec
 
-  plx --config libspec show
+  plx --config libspec
   plx --config libspec add <name> <spec>
   plx --config libspec del <name> <spec>
 
