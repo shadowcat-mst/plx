@@ -73,8 +73,8 @@ sub _build_layout_perl {
 
 sub layout_libspec_config {
   [ grep $_->[1],
-      map [ $_, $self->read_config_entry([ libs => $_ ]) ],
-        $self->list_config_names('libs') ];
+      map [ $_, $self->read_config_entry([ libspec => $_ ]) ],
+        $self->list_config_names('libspec') ];
 }
 
 sub layout_lib_specs {
@@ -159,6 +159,8 @@ sub setup_env_for_dir {
 }
 
 sub setup_env {
+  $ENV{$_} = $self->read_config_entry([ env => $_ ])
+    for $self->list_config_names('env');
   my $perl_dirname = File::Basename::dirname($self->layout_perl);
   our %orig_env;
   unless (grep $_ eq $perl_dirname, split ':', $orig_env{PATH}) {
@@ -236,7 +238,7 @@ END
   mkdir($dir) or barf "Couldn't create ${dir}: $!";
   $self->run_config_perl_set($perl||'perl');
   $self->write_config_entry(format => 1);
-  my $libspec_dir = $self->layout_config_dir('libs');
+  my $libspec_dir = $self->layout_config_dir('libspec');
   mkdir($libspec_dir) or barf "Couldn't create ${libspec_dir}: $!";
   $self->run_config_libspec_add(@$_) for (
     [ '25-local.ll' => 'local' ],
@@ -361,17 +363,34 @@ sub show_config_libspec {
   say sprintf("%-${max}s  %s", @$_) for @ent;
 }
 
-sub run_config_libspec_add {
-  my ($self, $name, $path) = @_;
-  barf "plx --config libspec add <name> <path>" unless $name and $path;
-  $self->write_config_entry([ libs => $name ], $path);
+sub run_named_config_add {
+  my ($self, $type, $name, $value) = @_;
+  barf "plx --config ${type} add <name> <value>" unless $name and $value;
+  unless (-d (my $dir = $self->layout_config_dir($type))) {
+    mkdir($dir) or die "Couldn't make config dir ${dir}: $!";
+  }
+  $self->write_config_entry([ $type => $name ], $value);
 }
 
-sub run_config_libspec_del {
-  my ($self, $name) = @_;
-  barf "plx --config libspec add <name>" unless $name;
-  $self->clear_config_entry([ libs => $name ]);
+sub run_named_config_del {
+  my ($self, $type, $name) = @_;
+  barf "plx --config ${type} dev <name>" unless $name;
+  $self->clear_config_entry([ $type => $name ]);
 }
+
+sub run_config_libspec_add { shift->run_named_config_add(libspec => @_) }
+sub run_config_libspec_del { shift->run_named_config_del(libspec => @_) }
+
+sub show_config_env {
+  my $max = List::Util::max(
+    map length, my @names = $self->list_config_names('env')
+  );
+  say sprintf("%-${max}s  %s", $_, $_->read_config_entry([ env => $_ ]))
+    for @names;
+}
+
+sub run_config_env_add { shift->run_named_config_add(env => @_) }
+sub run_config_env_del { shift->run_named_config_del(libspec => @_) }
 
 sub show_env {
   my ($self, $env) = @_;
