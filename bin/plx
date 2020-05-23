@@ -70,10 +70,9 @@ sub _build_layout_perl {
 }
 
 sub layout_libspec_config {
-  opendir my($dh), $self->layout_config_dir('libs');
   [ grep $_->[1],
       map [ $_, $self->read_config_entry([ libs => $_ ]) ],
-        sort readdir($dh) ];
+        $self->read_config_names('libs') ];
 }
 
 sub layout_lib_specs {
@@ -124,6 +123,14 @@ sub read_config_entry {
   open my $rfh, '<', $file or die "Couldn't open ${file}: $!";
   chomp(my $value = <$rfh>);
   return $value;
+}
+
+sub read_config_names {
+  my ($self, $path) = @_;
+  my $dir = $self->layout_config_dir(ref($path) ? @$path : $path);
+  return () unless -d $dir;
+  opendir my($dh), $dir or die "Couldn't opendir ${dir}: $!";
+  return grep -f File::Spec->catfile($dir, $_), sort readdir($dh);
 }
 
 sub slurp_command {
