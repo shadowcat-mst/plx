@@ -168,11 +168,6 @@ sub setup_env {
   return;
 }
 
-sub run_action_actions {
-  my $stash = do { no strict 'refs'; \%{__PACKAGE__.'::'} };
-  say "--$_" for map /^run_action_(.*)/, sort keys %$stash;
-}
-
 sub run_action_commands {
   my ($self, $filter) = @_;
   my @commands;
@@ -392,17 +387,23 @@ sub run_action_help {
   Pod::Usage::pod2usage();
 }
 
+sub run_action_actions {
+  require Pod::Usage;
+  Pod::Usage::pod2usage({ -verbose => 99, -sections => 'ACTIONS' });
+}
+
 sub run {
   my ($self, $cmd, @args) = @_;
   $self->run_action_help if !$cmd or $cmd eq '--help';
-  $self->ensure_layout_config_dir unless $cmd eq '--init';
   if ($cmd =~ s/^--//) {
     my $method = join('_', 'run_action', split '-', $cmd);
     if (my $code = $self->can($method)) {
+      $self->ensure_layout_config_dir unless $cmd eq 'init';
       return $self->$code(@args);
     }
-    barf "No command for ${cmd}";
+    barf "No such action --${cmd}, see 'perldoc plx' for the full list";
   }
+  $self->ensure_layout_config_dir;
   return $self->run_action_cmd($cmd, @args);
 }
 
@@ -578,7 +579,6 @@ Have fun!
   
   plx <something> <args>                 # Shorthand for plx --cmd
   
-  plx --actions                          # List available actions
   plx --commands <filter>?               # List available commands
 
 =head2 --help
@@ -748,12 +748,6 @@ L<lib> directory.
 When loaded, the spec is (if relative) resolved to an absolute path relative
 to the layout root, then all C<..> entries and symlinks resolved to give a
 final path used to set up the layout environment.
-
-=head2 --actions
-
-  plx --actions
-
-Lists all available actions (i.e. -- based first arguments to plx)
 
 =head2 --commands
 
