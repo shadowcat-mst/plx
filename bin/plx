@@ -21,6 +21,8 @@ use local::lib '--deactivate-all';
 BEGIN { delete @ENV{grep /^PERL/, keys %ENV} }
 no lib @Config{qw(sitearch sitelibexp)};
 
+my $fs = 'File::Spec';
+
 my $self = do {
   package Perl::Layout::Executor::_self;
   sub self { package DB; () = caller(2); $DB::args[0] }
@@ -77,19 +79,19 @@ sub layout_libspec_config {
 
 sub layout_lib_specs {
   my $base_dir = $self->layout_base_dir;
-  local *_ = sub { Cwd::realpath(File::Spec->rel2abs(shift, $base_dir)) };
+  local *_ = sub { Cwd::realpath($fs->rel2abs(shift, $base_dir)) };
   [ map [ ($_->[0] =~ /\.([^.]+)$/), _($_->[1]) ],
       @{$self->layout_libspec_config} ];
 }
 
 sub layout_file {
   my ($self, @path) = @_;
-  File::Spec->catfile($self->layout_base_dir, @path);
+  $fs->catfile($self->layout_base_dir, @path);
 }
 
 sub layout_dir {
   my ($self, @path) = @_;
-  File::Spec->catdir($self->layout_base_dir, @path);
+  $fs->catdir($self->layout_base_dir, @path);
 }
 
 sub ensure_layout_config_dir {
@@ -130,7 +132,7 @@ sub read_config_names {
   my $dir = $self->layout_config_dir(ref($path) ? @$path : $path);
   return () unless -d $dir;
   opendir my($dh), $dir or die "Couldn't opendir ${dir}: $!";
-  return grep -f File::Spec->catfile($dir, $_), sort readdir($dh);
+  return grep -f $fs->catfile($dir, $_), sort readdir($dh);
 }
 
 sub slurp_command {
@@ -198,7 +200,7 @@ sub run_action_commands {
     opendir my ($dh), $dir;
     foreach my $entry (sort readdir($dh)) {
       next if $entry =~ /^\.+$/;
-      my $file = File::Spec->catfile($dir, $entry);
+      my $file = $fs->catfile($dir, $entry);
       next unless -x $file;
       push @commands, [ $entry, $file ] unless $seen{$entry}++;
     }
