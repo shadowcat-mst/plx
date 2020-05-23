@@ -53,9 +53,19 @@ sub layout_perl {
 }
 
 sub _build_layout_base_dir {
-  # we will walk upwards later (we don't check if the directory exists
-  # because setup actions may use this path)
-  return Cwd::getcwd();
+  my @parts = $fs->splitdir(Cwd::realpath(Cwd::getcwd()));
+  my $cand;
+  my $reason = '';
+  while (@parts > 1) { # go back to one step before root at most
+    $cand = $fs->catdir(@parts);
+    return $cand if -d $fs->catdir($cand, '.plx');
+    if (-d $fs->catdir($cand, '.git')) { # don't escape current repository
+      $reason = ' due to .git directory';
+      last;
+    }
+    pop @parts;
+  }
+  barf "Couldn't find .plx directory (stopped searching at ${cand}${reason})";
 }
 
 sub _build_layout_perl {
