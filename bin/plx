@@ -257,11 +257,11 @@ sub run_action_cmd {
   }
 
   if (-f $self->layout_file(dev => $cmd)) {
-    return $self->run_action_dev($cmd, @args);
+    return $self->run_action_perl("dev/$cmd", @args);
   }
 
   if (-f $self->layout_file(bin => $cmd)) {
-    return $self->run_action_bin($cmd, @args);
+    return $self->run_action_perl("bin/$cmd", @args);
   }
 
   $self->run_action_exec($cmd, @args);
@@ -271,16 +271,6 @@ sub run_action_perl {
   my ($self, @call) = @_;
   return $self->run_config_perl_show unless @call;
   $self->run_action_exec($self->layout_perl, @call);
-}
-
-sub run_action_dev {
-  my ($self, $cmd, @args) = @_;
-  $self->run_action_perl($self->layout_file(dev => $cmd), @args);
-}
-
-sub run_action_bin {
-  my ($self, $cmd, @args) = @_;
-  $self->run_action_perl($self->layout_file(bin => $cmd), @args);
 }
 
 sub run_action_exec {
@@ -572,8 +562,6 @@ Have fun!
 
   plx --exec <cmd> <args>                # exec()s with env vars set
   plx --perl <args>                      # Run perl with args
-  plx --bin <script> <args>              # Run script from bin/
-  plx --dev <script> <args>              # Run script from dev/
 
   plx --cmd <cmd> <args>                 # DWIM command:
   
@@ -582,8 +570,8 @@ Have fun!
     cmd = some/file      -> --perl some/file <args>
     cmd = ./file         -> --perl ./file <args>
     cmd = name ->
-      exists dev/<name>  -> --dev <name> <args>
-      exists bin/<name>  -> --bin <name> <args>
+      exists dev/<name>  -> --perl dev/<name> <args>
+      exists bin/<name>  -> --perl bin/<name> <args>
       else               -> --exec <name> <args>
   
   plx <something> <args>                 # Shorthand for plx --cmd
@@ -666,28 +654,6 @@ Without arguments, sugar for C<--config perl show>.
 Otherwise, sets up the layout's environment variables and C<exec>s the
 layout's perl with the given options and arguments.
 
-=head2 --dev
-
-  plx --dev <script> <args>
-
-Runs C<dev/script> ala L<--perl>.
-
-Much like the C<devel> L<local::lib> is created to allow for the installation
-of out-of-band dependencies that aren't going to be needed in production, the
-C<dev> directory is supported to allow for the easy addition of development
-time only sugar commands. Note that since C<perl> will re-exec anything with
-a non-perl shebang, one can add wrappers here ala:
-
-  $ cat dev/prove
-  #!/bin/sh
-  exec prove -j8 "$@"
-
-=head2 --bin
-
-  plx --bin <script> <args>
-
-Runs C<bin/script> ala L<--perl>.
-
 =head2 --cmd
 
   plx --cmd <cmd> <args>                 # DWIM command:
@@ -697,9 +663,19 @@ Runs C<bin/script> ala L<--perl>.
     cmd = some/file      -> --perl some/file <args>
     cmd = ./file         -> --perl ./file <args>
     cmd = name ->
-      exists dev/<name>  -> --dev <name> <args>
-      exists bin/<name>  -> --bin <name> <args>
+      exists dev/<name>  -> --perl dev/<name> <args>
+      exists bin/<name>  -> --perl bin/<name> <args>
       else               -> --exec <name> <args>
+
+B<Note>: Much like the C<devel> L<local::lib> is created to allow for the
+installation of out-of-band dependencies that aren't going to be needed in
+production, the C<dev> directory is supported to allow for the easy addition
+of development time only sugar commands. Note that since C<perl> will re-exec
+anything with a non-perl shebang, one can add wrappers here ala:
+
+  $ cat dev/prove
+  #!/bin/sh
+  exec prove -j8 "$@"
 
 =head2 --config
 
