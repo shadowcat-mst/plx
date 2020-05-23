@@ -74,7 +74,7 @@ sub _build_layout_perl {
 sub layout_libspec_config {
   [ grep $_->[1],
       map [ $_, $self->read_config_entry([ libs => $_ ]) ],
-        $self->read_config_names('libs') ];
+        $self->list_config_names('libs') ];
 }
 
 sub layout_lib_specs {
@@ -127,7 +127,7 @@ sub read_config_entry {
   return $value;
 }
 
-sub read_config_names {
+sub list_config_names {
   my ($self, $path) = @_;
   my $dir = $self->layout_config_dir(ref($path) ? @$path : $path);
   return () unless -d $dir;
