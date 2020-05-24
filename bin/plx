@@ -418,9 +418,8 @@ sub run_action_help {
   Pod::Usage::pod2usage();
 }
 
-sub run_action_actions {
-  require Pod::Usage;
-  Pod::Usage::pod2usage({ -verbose => 99, -sections => 'ACTIONS' });
+sub run_action_version {
+  say $VERSION;
 }
 
 sub run {
