@@ -30,7 +30,7 @@ ok(-f '.plx/perl', 'file created');
 
 plx '--perl';
 
-is_deeply $out, [ which('perl') ], '--perl output';
+is_deeply $out, [ scalar which('perl') ], '--perl output';
 
 plx qw(--config perl set), $^X;
 
