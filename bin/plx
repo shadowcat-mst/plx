@@ -234,7 +234,7 @@ sub run_action_commands {
 
 sub run_action_init {
   my ($self, $perl) = @_;
-  my $dir = $self->layout_dir('.plx');
+  my $dir = $fs->catdir(Cwd::getcwd(), '.plx');
   if (-d $dir) {
     if ($perl) {
       stderr <<END;
