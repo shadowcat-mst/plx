@@ -1,6 +1,7 @@
 use strict;
 use warnings;
 use File::Path qw(make_path remove_tree);
+use File::Which qw(which);
 use Test::More;
 
 require './bin/plx';
@@ -29,7 +30,7 @@ ok(-f '.plx/perl', 'file created');
 
 plx '--perl';
 
-is_deeply $out, [ $^X ], '--perl output';
+is_deeply $out, [ which('perl') ], '--perl output';
 
 plx qw(--config libspec);
 
