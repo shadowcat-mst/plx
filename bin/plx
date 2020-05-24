@@ -236,7 +236,7 @@ sub run_action_commands {
 
 sub run_action_init {
   my ($self, $perl) = @_;
-  my $dir = $fs->catdir(Cwd::getcwd(), '.plx');
+  my $dir = $fs->catdir($self->{layout_base_dir}||Cwd::getcwd(), '.plx');
   if (-d $dir) {
     if ($perl) {
       stderr <<END;
@@ -271,12 +271,12 @@ sub run_action_cmd {
     return $self->run_action_perl($cmd, @args);
   }
 
-  if (-f $self->layout_file(dev => $cmd)) {
-    return $self->run_action_perl("dev/$cmd", @args);
+  if (-f (my $file = $self->layout_file(dev => $cmd))) {
+    return $self->run_action_perl($file, @args);
   }
 
-  if (-f $self->layout_file(bin => $cmd)) {
-    return $self->run_action_perl("bin/$cmd", @args);
+  if (-f (my $file = $self->layout_file(bin => $cmd))) {
+    return $self->run_action_perl($file, @args);
   }
 
   $self->run_action_exec($cmd, @args);
@@ -433,7 +433,6 @@ sub run_action_version {
 sub run_action_base {
   my ($self, $base, @chain) = @_;
   barf "--base <base> <action> <args>" unless @chain;
-  barf "Invalid plx base dir ${base}" unless -d $fs->catdir($base, '.plx');
   $self->new({ layout_base_dir => $base })->run(@chain);
 }
 
