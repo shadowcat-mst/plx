@@ -3,7 +3,7 @@ use warnings;
 use File::Path qw(make_path remove_tree);
 use Test::More;
 
-require 'bin/plx';
+require './bin/plx';
 
 my ($out, $err);
 
