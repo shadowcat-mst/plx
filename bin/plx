@@ -31,6 +31,7 @@ my $self = do {
     my ($meth) = (our $AUTOLOAD =~ /([^:]+)$/);
     self->$meth(@_[1..$#_]);
   }
+  sub DESTROY {}
   bless([], __PACKAGE__);
 };
 
@@ -427,6 +428,13 @@ sub run_action_help {
 
 sub run_action_version {
   say sprintf "%f", $VERSION;
+}
+
+sub run_action_base {
+  my ($self, $base, @chain) = @_;
+  barf "--base <base> <action> <args>" unless @chain;
+  barf "Invalid plx base dir ${base}" unless -d $fs->catdir($base, '.plx');
+  $self->new({ layout_base_dir => $base })->run(@chain);
 }
 
 sub run {
