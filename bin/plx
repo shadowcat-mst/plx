@@ -426,7 +426,7 @@ sub run_action_help {
 }
 
 sub run_action_version {
-  say $VERSION;
+  say sprintf "%f", $VERSION;
 }
 
 sub run {
