@@ -32,6 +32,12 @@ plx '--perl';
 
 is_deeply $out, [ which('perl') ], '--perl output';
 
+plx qw(--config perl set), $^X;
+
+plx '--perl';
+
+is_deeply $out, [ Cwd::realpath($^X) ], '--perl output';
+
 plx qw(--config libspec);
 
 is_deeply $out, [
