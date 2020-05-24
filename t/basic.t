@@ -39,4 +39,13 @@ is_deeply $out, [
   '75-lib.dir   lib',
 ], 'libspec config';
 
+{
+  no warnings 'redefine';
+  require Pod::Usage;
+  my $called_usage;
+  local *Pod::Usage::pod2usage = sub { $called_usage = 1 };
+  plx '--help';
+  ok $called_usage, 'pod2usage fired for --help';
+}
+
 done_testing;
