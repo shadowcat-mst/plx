@@ -191,6 +191,7 @@ sub setup_env {
 
 sub run_action_commands {
   my ($self, $filter) = @_;
+  $self->ensure_layout_config_dir;
   my @commands;
   my %seen;
   foreach my $dirname ('dev', 'bin') {
@@ -259,6 +260,7 @@ END
 
 sub run_action_cmd {
   my ($self, $cmd, @args) = @_;
+  $self->ensure_layout_config_dir;
 
   if ($cmd eq 'perl') {
     return $self->run_action_perl(@args);
@@ -281,12 +283,14 @@ sub run_action_cmd {
 
 sub run_action_perl {
   my ($self, @call) = @_;
+  $self->ensure_layout_config_dir;
   return $self->show_config_perl unless @call;
   $self->run_action_exec($self->layout_perl, @call);
 }
 
 sub run_action_exec {
   my ($self, @exec) = @_;
+  $self->ensure_layout_config_dir;
   $self->setup_env;
   no warnings 'exec';
   exec(@exec) or barf "exec of (".join(' ', @exec).") failed: $!";
@@ -294,6 +298,7 @@ sub run_action_exec {
 
 sub run_action_cpanm {
   my ($self, @args) = @_;
+  $self->ensure_layout_config_dir;
   my $cpanm = do {
     local %ENV = our %orig_env;
     barf "Couldn't find cpanm in \$PATH"
@@ -309,6 +314,7 @@ sub run_action_cpanm {
 
 sub run_action_config {
   my ($self, $config, @args) = @_;
+  $self->ensure_layout_config_dir;
   unless ($config) {
     say "# perl";
     $self->show_config_perl;
@@ -404,6 +410,7 @@ sub run_config_env_del { shift->run_named_config_del(libspec => @_) }
 
 sub show_env {
   my ($self, $env) = @_;
+  $self->ensure_layout_config_dir;
   local $ENV{$env} = '';
   $self->setup_env;
   say $_ for split ':', $ENV{$env};
@@ -428,7 +435,6 @@ sub run {
   if ($cmd =~ s/^--//) {
     my $method = join('_', 'run_action', split '-', $cmd);
     if (my $code = $self->can($method)) {
-      $self->ensure_layout_config_dir unless $cmd eq 'init';
       return $self->$code(@args);
     }
     barf "No such action --${cmd}, see 'perldoc plx' for the full list";
