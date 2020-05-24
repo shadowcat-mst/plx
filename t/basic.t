@@ -40,7 +40,7 @@ is_deeply $out, [
 ], 'libspec config';
 
 {
-  no warnings 'redefine';
+  no warnings qw(once redefine);
   require Pod::Usage;
   my $called_usage;
   local *Pod::Usage::pod2usage = sub { $called_usage = 1 };
