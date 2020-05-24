@@ -31,6 +31,9 @@ my $self = do {
     my ($meth) = (our $AUTOLOAD =~ /([^:]+)$/);
     self->$meth(@_[1..$#_]);
   }
+  sub DESTROY {
+    ;
+  }
   bless([], __PACKAGE__);
 };
 
@@ -42,7 +45,9 @@ sub say { print "$_[0]\n" }
 
 sub new {
   my $class = shift;
-  bless @_ ? @_ > 1 ? {@_} : {%{$_[0]}} : {}, ref $class || $class;
+  my $self = bless @_ ? @_ > 1 ? {@_} : {%{$_[0]}} : {}, ref $class || $class;
+  $self->{init} = 0;
+  $self
 }
 
 sub layout_base_dir {
@@ -58,7 +63,7 @@ sub _build_layout_base_dir {
   my $reason = '';
   while (@parts > 1) { # go back to one step before root at most
     $cand = $fs->catdir(@parts);
-    return $cand if -d $fs->catdir($cand, '.plx');
+    return $cand if -d $fs->catdir($cand, '.plx') || !$self->{init};
     if (-d $fs->catdir($cand, '.git')) { # don't escape current repository
       $reason = ' due to .git directory';
       last;
@@ -255,6 +260,7 @@ END
     [ '50-devel.ll' => 'devel' ],
     [ '75-lib.dir' => 'lib' ],
   );
+  $self->{init}++;
 }
 
 sub run_action_cmd {
@@ -453,7 +459,7 @@ App::plx - Perl Layout Executor
   plx --libs                             # Show layout $PERL5LIB entries
   plx --paths                            # Show layout additional $PATH entries
   plx --cpanm -llocal --installdeps .    # Run cpanm from outside $PATH
- 
+
   plx perl <args>                        # Run perl within layout
   plx -E '...'                           # (ditto)
   plx script-in-dev <args>               # Run dev/ script within layout
@@ -594,7 +600,7 @@ Have fun!
   plx --perl <args>                      # Run perl with args
 
   plx --cmd <cmd> <args>                 # DWIM command:
-  
+
     cmd = perl           -> --perl <args>
     cmd = -<flag>        -> --perl -<flag> <args>
     cmd = some/file      -> --perl some/file <args>
@@ -603,9 +609,9 @@ Have fun!
       exists dev/<name>  -> --perl dev/<name> <args>
       exists bin/<name>  -> --perl bin/<name> <args>
       else               -> --exec <name> <args>
-  
+
   plx <something> <args>                 # Shorthand for plx --cmd
-  
+
   plx --commands <filter>?               # List available commands
 
 =head2 --help
@@ -687,7 +693,7 @@ layout's perl with the given options and arguments.
 =head2 --cmd
 
   plx --cmd <cmd> <args>                 # DWIM command:
-  
+
     cmd = perl           -> --perl <args>
     cmd = -<flag>        -> --perl -<flag> <args>
     cmd = some/file      -> --perl some/file <args>
