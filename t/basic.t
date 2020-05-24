@@ -21,7 +21,22 @@ remove_tree $dir;
 make_path $dir;
 chdir $dir;
 
-ok(!eval { plx '--perl'; 1 }, "Can't run commands against empty dir");
+ok(!eval { plx "--$_"; 1 }, "Can't run --$_ against empty dir") for qw(
+  base
+  cmd
+  commands
+  config
+  cpanm
+  exec
+  help
+  libs
+  paths
+  perl
+);
+
+plx '--version';
+
+is_deeply $out, [ App::plx->VERSION ], '--version output';
 
 plx '--init';
 
