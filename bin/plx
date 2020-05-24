@@ -436,6 +436,10 @@ sub run_action_version {
 
 sub run_action_base {
   my ($self, $base, @chain) = @_;
+  unless ($base) {
+    say $self->layout_base_dir;
+    return;
+  }
   barf "--base <base> <action> <args>" unless @chain;
   $self->new({ layout_base_dir => $base })->run(@chain);
 }
@@ -591,8 +595,12 @@ Have fun!
 =head1 ACTIONS
 
   plx --help                             # Print synopsis
+  plx --version                          # Print plx version
 
-  plx --init <perl>                      # Initialize layout config
+  plx --init <perl>                      # Initialize layout config for .
+  plx --base                             # Show layout base dir 
+  plx --base <base> <action> <args>      # Run action with specified base dir
+  
   plx --perl                             # Show layout perl binary
   plx --libs                             # Show layout $PERL5LIB entries
   plx --paths                            # Show layout additional $PATH entries
@@ -605,6 +613,10 @@ Have fun!
   plx --config libspec                   # Show lib specifications
   plx --config libspec add <name> <path> # Add lib specification
   plx --config libspec del <name> <path> # Delete lib specification
+  
+  plx --config env                       # Show additional env vars
+  plx --config env add <name> <path>     # Add env var
+  plx --config env del <name> <path>     # Delete env var
 
   plx --exec <cmd> <args>                # exec()s with env vars set
   plx --perl <args>                      # Run perl with args
@@ -646,6 +658,25 @@ Creates the following libspec config:
   25-local.ll  local
   50-devel.ll  devel
   75-lib.dir   lib
+
+=head2 --base
+
+  plx --base
+  plx --base <base> <action> <args>
+
+Without arguments, shows the selected base dir - C<plx> finds this by
+checking for a C<.plx> directory in the current directory, and if not tries
+the parent directory, recursively. The search stops either when C<plx> finds
+a C<.git> directory, to avoid accidentally escaping a project repository, or
+at the last directory before the root - i.e. C<plx> will test C</home> but
+not C</>.
+
+With arguments, specifies a base dir to use, and then invokes the rest of the
+arguments with that base dir selected - so for example one can make a default
+configuration in C<$HOME> available as C<plh> by running:
+
+  plx --init $HOME
+  alias plh='plx --base $HOME'
 
 =head2 --libs
 
@@ -779,6 +810,16 @@ L<lib> directory.
 When loaded, the spec is (if relative) resolved to an absolute path relative
 to the layout root, then all C<..> entries and symlinks resolved to give a
 final path used to set up the layout environment.
+
+=head3 env
+
+  plx --config env
+  plx --config env add <name> <value>
+  plx --config env del <name> <value>
+
+Manages additional environment variables, which are set immediately before
+any environment changes required for the current L</libspec> and L</perl>
+settings are processed.
 
 =head2 --commands
 
