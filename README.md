@@ -16,7 +16,8 @@ App::plx - Perl Layout Executor
      plx -E '...'                           # (ditto)
      plx script-in-dev <args>               # Run dev/ script within layout
      plx script-in-bin <args>               # Run bin/ script within layout
-     plx script/in/cwd <args>               # Run script within layout
+     plx ./script <args>                    # Run script within layout
+     plx script/in/cwd <args>               # (ditto)
      plx program <args>                     # Run program from layout $PATH
 
 # WHY PLX
@@ -132,27 +133,31 @@ Have fun!
 # ACTIONS
 
     plx --help                             # Print synopsis
+    plx --version                          # Print plx version
 
-    plx --init <perl>                      # Initialize layout config
+    plx --init <perl>                      # Initialize layout config for .
+    plx --base                             # Show layout base dir 
+    plx --base <base> <action> <args>      # Run action with specified base dir
+    
     plx --perl                             # Show layout perl binary
     plx --libs                             # Show layout $PERL5LIB entries
     plx --paths                            # Show layout additional $PATH entries
     plx --cpanm -llocal --installdeps .    # Run cpanm from outside $PATH
 
     plx --config perl                      # Show perl binary
-    plx --config perl show                 # Show perl binary
     plx --config perl set /path/to/perl    # Select exact perl binary
     plx --config perl set perl-5.xx.y      # Select perl via $PATH or perlbrew
 
     plx --config libspec                   # Show lib specifications
-    plx --config libspec show              # Show lib specifications
     plx --config libspec add <name> <path> # Add lib specification
     plx --config libspec del <name> <path> # Delete lib specification
+    
+    plx --config env                       # Show additional env vars
+    plx --config env add <name> <path>     # Add env var
+    plx --config env del <name> <path>     # Delete env var
 
     plx --exec <cmd> <args>                # exec()s with env vars set
     plx --perl <args>                      # Run perl with args
-    plx --bin <script> <args>              # Run script from bin/
-    plx --dev <script> <args>              # Run script from dev/
 
     plx --cmd <cmd> <args>                 # DWIM command:
     
@@ -161,11 +166,13 @@ Have fun!
       cmd = some/file      -> --perl some/file <args>
       cmd = ./file         -> --perl ./file <args>
       cmd = name ->
-        exists dev/<name>  -> --dev <name> <args>
-        exists bin/<name>  -> --bin <name> <args>
+        exists dev/<name>  -> --perl dev/<name> <args>
+        exists bin/<name>  -> --perl bin/<name> <args>
         else               -> --exec <name> <args>
     
     plx <something> <args>                 # Shorthand for plx --cmd
+    
+    plx --commands <filter>?               # List available commands
 
 ## --help
 
@@ -186,9 +193,28 @@ and sets the result as the layout perl; if not looks for just `perl`.
 
 Creates the following libspec config:
 
-    25local.ll  local
-    50devel.ll  devel
-    75lib.dir   lib
+    25-local.ll  local
+    50-devel.ll  devel
+    75-lib.dir   lib
+
+## --base
+
+    plx --base
+    plx --base <base> <action> <args>
+
+Without arguments, shows the selected base dir - `plx` finds this by
+checking for a `.plx` directory in the current directory, and if not tries
+the parent directory, recursively. The search stops either when `plx` finds
+a `.git` directory, to avoid accidentally escaping a project repository, or
+at the last directory before the root - i.e. `plx` will test `/home` but
+not `/`.
+
+With arguments, specifies a base dir to use, and then invokes the rest of the
+arguments with that base dir selected - so for example one can make a default
+configuration in `$HOME` available as `plh` by running:
+
+    plx --init $HOME
+    alias plh='plx --base $HOME'
 
 ## --libs
 
@@ -238,32 +264,10 @@ Sets up the layout's environment variables and `exec`s the command.
     plx --perl
     plx --perl <options> <script> <args>
 
-Without arguments, sugar for `--config perl show`.
+Without arguments, sugar for `--config perl`.
 
 Otherwise, sets up the layout's environment variables and `exec`s the
 layout's perl with the given options and arguments.
-
-## --dev
-
-    plx --dev <script> <args>
-
-Runs `dev/script` ala [--perl](https://metacpan.org/pod/--perl).
-
-Much like the `devel` [local::lib](https://metacpan.org/pod/local::lib) is created to allow for the installation
-of out-of-band dependencies that aren't going to be needed in production, the
-`dev` directory is supported to allow for the easy addition of development
-time only sugar commands. Note that since `perl` will re-exec anything with
-a non-perl shebang, one can add wrappers here ala:
-
-    $ cat dev/prove
-    #!/bin/sh
-    exec prove -j8 "$@"
-
-## --bin
-
-    plx --bin <script> <args>
-
-Runs `bin/script` ala [--perl](https://metacpan.org/pod/--perl).
 
 ## --cmd
 
@@ -274,19 +278,29 @@ Runs `bin/script` ala [--perl](https://metacpan.org/pod/--perl).
       cmd = some/file      -> --perl some/file <args>
       cmd = ./file         -> --perl ./file <args>
       cmd = name ->
-        exists dev/<name>  -> --dev <name> <args>
-        exists bin/<name>  -> --bin <name> <args>
+        exists dev/<name>  -> --perl dev/<name> <args>
+        exists bin/<name>  -> --perl bin/<name> <args>
         else               -> --exec <name> <args>
+
+**Note**: Much like the `devel` [local::lib](https://metacpan.org/pod/local::lib) is created to allow for the
+installation of out-of-band dependencies that aren't going to be needed in
+production, the `dev` directory is supported to allow for the easy addition
+of development time only sugar commands. Note that since `perl` will re-exec
+anything with a non-perl shebang, one can add wrappers here ala:
+
+    $ cat dev/prove
+    #!/bin/sh
+    exec prove -j8 "$@"
 
 ## --config
 
     plx --config                     # Show current config
-    plx --config <name>              # Alias for --config <name> show
+    plx --config <name>              # Show current <name> config
     plx --config <name> <operation>  # Invoke config operation
 
 ### perl
 
-    plx --config perl show
+    plx --config perl
     plx --config perl set <spec>
 
 If the spec passed to `set` contains a `/` character, plx assumes that it's
@@ -312,7 +326,7 @@ will automatically attempt to re-locate the perl on first invocation.
 
 ### libspec
 
-    plx --config libspec show
+    plx --config libspec
     plx --config libspec add <name> <spec>
     plx --config libspec del <name> <spec>
 
@@ -320,9 +334,9 @@ A libspec config entry consists of a name and a spec, and the show output
 prints them space separated one per line, with enough spaces to make the
 specs align:
 
-    25local.ll  local
-    50devel.ll  devel
-    75lib.dir   lib
+    25-local.ll  local
+    50-devel.ll  devel
+    75-lib.dir   lib
 
 The part of the name before the last `.` is not semantically significant to
 plx, but is used for asciibetical sorting of the libspec entries to determine
@@ -334,6 +348,28 @@ The part after must be either `ll` for a [local::lib](https://metacpan.org/pod/l
 When loaded, the spec is (if relative) resolved to an absolute path relative
 to the layout root, then all `..` entries and symlinks resolved to give a
 final path used to set up the layout environment.
+
+### env
+
+    plx --config env
+    plx --config env add <name> <value>
+    plx --config env del <name> <value>
+
+Manages additional environment variables, which are set immediately before
+any environment changes required for the current ["libspec"](#libspec) and ["perl"](#perl)
+settings are processed.
+
+## --commands
+
+    plx --commands         # all commands
+    plx --commands c       # all commands starting with c
+    plx --commands /json/  # all commands matching /json/
+
+Lists available commands, name first, then full path.
+
+If a filter argument is given, treats it as a fixed prefix to filter the
+command list, unless the filter is `/re/` in which case the slashes are
+stripped and the filter is treated as a regexp.
 
 # AUTHOR
 
