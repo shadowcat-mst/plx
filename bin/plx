@@ -411,7 +411,7 @@ sub show_config_env {
 }
 
 sub run_config_env_add { shift->run_named_config_add(env => @_) }
-sub run_config_env_del { shift->run_named_config_del(libspec => @_) }
+sub run_config_env_del { shift->run_named_config_del(env => @_) }
 
 sub show_env {
   my ($self, $env) = @_;
