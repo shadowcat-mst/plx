@@ -321,6 +321,10 @@ sub run_action_config {
     $self->show_config_perl;
     say "# libspec";
     $self->show_config_libspec;
+    if ($self->list_config_names('env')) {
+      say "# env";
+      $self->show_config_env;
+    }
     return;
   }
   barf "Unknown config key ${config}"
@@ -402,7 +406,7 @@ sub show_config_env {
   my $max = List::Util::max(
     map length, my @names = $self->list_config_names('env')
   );
-  say sprintf("%-${max}s  %s", $_, $_->read_config_entry([ env => $_ ]))
+  say sprintf("%-${max}s  %s", $_, $self->read_config_entry([ env => $_ ]))
     for @names;
 }
 
