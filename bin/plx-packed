@@ -3149,21 +3149,21 @@ sub setup_env {
   return;
 }
 
+sub cmd_search_path { qw(.plx/cmd dev bin) }
+
 sub run_action_commands {
   my ($self, $filter) = @_;
   $self->ensure_layout_config_dir;
   my @commands;
   my %seen;
-  foreach my $dirname ('dev', 'bin') {
+  foreach my $dirname ($self->cmd_search_path) {
     next unless -d (my $dir = $self->layout_dir($dirname));
     opendir my ($dh), $dir or barf "Couldn't open ${dir}: $!";
     foreach my $entry (sort readdir($dh)) {
       next if $entry =~ /^\.+$/;
       my $file = $self->layout_file($dirname, $entry);
       next unless -f $file;
-      open my $rfh, '<', $file or die "Couldn't open ${file}: $!";
-      chomp(my $value = <$rfh>);
-      if ($value =~ /^#!/ and !$seen{$entry}++) {
+      unless ($seen{$entry}++) {
         push @commands, [ $entry, "${dirname}/${entry}" ];
       }
     }
@@ -3230,12 +3230,10 @@ sub run_action_cmd {
     return $self->run_action_perl($cmd, @args);
   }
 
-  if (-f (my $file = $self->layout_file(dev => $cmd))) {
-    return $self->run_action_perl($file, @args);
-  }
-
-  if (-f (my $file = $self->layout_file(bin => $cmd))) {
-    return $self->run_action_perl($file, @args);
+  foreach my $dirname ($self->cmd_search_path) {
+    if (-f (my $file = $self->layout_file($dirname => $cmd))) {
+      return $self->run_action_perl($file, @args);
+    }
   }
 
   $self->run_action_exec($cmd, @args);
@@ -3589,9 +3587,10 @@ Have fun!
     cmd = some/file      -> --perl some/file <args>
     cmd = ./file         -> --perl ./file <args>
     cmd = name ->
-      exists dev/<name>  -> --perl dev/<name> <args>
-      exists bin/<name>  -> --perl bin/<name> <args>
-      else               -> --exec <name> <args>
+      exists .plx/cmd/<name> -> --perl .plx/cmd/<name> <args>
+      exists dev/<name>      -> --perl dev/<name> <args>
+      exists bin/<name>      -> --perl bin/<name> <args>
+      else                   -> --exec <name> <args>
   
   plx <something> <args>                 # Shorthand for plx --cmd
   
@@ -3701,9 +3700,10 @@ layout's perl with the given options and arguments.
     cmd = some/file      -> --perl some/file <args>
     cmd = ./file         -> --perl ./file <args>
     cmd = name ->
-      exists dev/<name>  -> --perl dev/<name> <args>
-      exists bin/<name>  -> --perl bin/<name> <args>
-      else               -> --exec <name> <args>
+      exists .plx/cmd/<name> -> --perl .plx/cmd/<name> <args>
+      exists dev/<name>      -> --perl dev/<name> <args>
+      exists bin/<name>      -> --perl bin/<name> <args>
+      else                   -> --exec <name> <args>
 
 B<Note>: Much like the C<devel> L<local::lib> is created to allow for the
 installation of out-of-band dependencies that aren't going to be needed in

@@ -166,9 +166,10 @@ Have fun!
       cmd = some/file      -> --perl some/file <args>
       cmd = ./file         -> --perl ./file <args>
       cmd = name ->
-        exists dev/<name>  -> --perl dev/<name> <args>
-        exists bin/<name>  -> --perl bin/<name> <args>
-        else               -> --exec <name> <args>
+        exists .plx/cmd/<name> -> --perl .plx/cmd/<name> <args>
+        exists dev/<name>      -> --perl dev/<name> <args>
+        exists bin/<name>      -> --perl bin/<name> <args>
+        else                   -> --exec <name> <args>
     
     plx <something> <args>                 # Shorthand for plx --cmd
     
@@ -278,9 +279,10 @@ layout's perl with the given options and arguments.
       cmd = some/file      -> --perl some/file <args>
       cmd = ./file         -> --perl ./file <args>
       cmd = name ->
-        exists dev/<name>  -> --perl dev/<name> <args>
-        exists bin/<name>  -> --perl bin/<name> <args>
-        else               -> --exec <name> <args>
+        exists .plx/cmd/<name> -> --perl .plx/cmd/<name> <args>
+        exists dev/<name>      -> --perl dev/<name> <args>
+        exists bin/<name>      -> --perl bin/<name> <args>
+        else                   -> --exec <name> <args>
 
 **Note**: Much like the `devel` [local::lib](https://metacpan.org/pod/local::lib) is created to allow for the
 installation of out-of-band dependencies that aren't going to be needed in
