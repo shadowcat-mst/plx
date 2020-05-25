@@ -263,6 +263,10 @@ sub run_action_cmd {
   my ($self, $cmd, @args) = @_;
   $self->ensure_layout_config_dir;
 
+  if ($fs->file_name_is_absolute($cmd)) {
+    return $self->run_action_exec($cmd => @args);
+  }
+
   if ($cmd eq 'perl') {
     return $self->run_action_perl(@args);
   }
