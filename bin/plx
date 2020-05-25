@@ -592,6 +592,23 @@ coming next.
 
 Have fun!
 
+=head1 BOOTSTRAP
+
+Under normal circumstances, one would run something like:
+
+  cpanm App::plx
+
+However, if you want a self-contained plx script without having a cpan
+installer available, you can run:
+
+  mkdir bin
+  wget https://raw.githubusercontent.com/shadowcat-mst/plx/master/bin/plx-packed -O bin/plx
+
+to get the current latest packed version.
+
+The packed version bundled L<local::lib> and L<File::Which>, and also includes
+a modified C<--cpanm> action that uses an inline C<App::cpanminus>.
+
 =head1 ACTIONS
 
   plx --help                             # Print synopsis
