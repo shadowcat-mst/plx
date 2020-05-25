@@ -33,6 +33,7 @@ CPANM
   }
 }
 *App::plx::find_cpanm = sub { return ($0, "--spiner") };
+
 '
 
 }
