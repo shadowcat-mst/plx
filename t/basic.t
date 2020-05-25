@@ -9,7 +9,10 @@ require './bin/plx';
 my ($out, $err, $log);
 
 my $dir = 't/var/basic';
+my $root = Cwd::getcwd;
 my $perl = Cwd::realpath($^X);
+my $path_perl = which('perl');
+my $path_cpanm = which('cpanm');
 
 sub plx {
   no warnings qw(once redefine);
@@ -22,6 +25,7 @@ sub plx {
 }
 
 sub new {
+  chdir $root;
   remove_tree $dir;
   make_path $dir;
   chdir $dir;
@@ -48,11 +52,21 @@ subtest 'plx --init', sub {
 };
 
 subtest 'plx --actions', sub {
-  ok 1;
+  new;
+  plx '--init';
+  eval { plx '--actions' };
+  like $err->[0], qr/No such action --actions/, 'not an action; see perldoc';
 };
 
 subtest 'plx --cmd', sub {
-  ok 1;
+  new;
+  plx '--init';
+  plx qw(--cmd echo 'ehlo');
+  is_deeply $log, ['echo', "'ehlo'"];
+  plx qw(--cmd perl -MData::Dumper=Dumper -E 'Dumper(@ARGV)');
+  is_deeply $log, [$path_perl, '-MData::Dumper=Dumper', '-E', "'Dumper(\@ARGV)'"];
+  # plx qw(--cmd /usr/local/bin/psql postgres);
+  # is_deeply $log, ['/usr/local/bin/psql', 'postgres'];
 };
 
 subtest 'plx --commands', sub {
@@ -82,15 +96,19 @@ subtest 'plx --cpanm', sub {
   eval { plx qw(--cpanm --help) };
   like $err->[0], qr(-cpanm args must start with -l or -L), 'no cpanm w/o lib';
   plx qw(--cpanm -llocal --help);
-  my ($_perl, $_cpanm) = (scalar(which('perl')), scalar(which('cpanm')));
-  is_deeply $log, [$_perl, $_cpanm, '-llocal', '--help'], 'cpanm ok';
+  is_deeply $log, [$path_perl, $path_cpanm, '-llocal', '--help'], 'cpanm ok';
   plx qw(--config perl set), $^X;
   plx qw(--cpanm -llocal --help);
-  is_deeply $log, [$perl, $_cpanm, '-llocal', '--help'], 'custom perl cpanm ok';
+  is_deeply $log, [$perl, $path_cpanm, '-llocal', '--help'], 'custom perl cpanm ok';
 };
 
 subtest 'plx --exec', sub {
-  ok 1;
+  new;
+  plx '--init';
+  plx '--exec';
+  ok !@$log && !@$out && !@$err;
+  plx qw(--exec echo);
+  is_deeply $log, ['echo'];
 };
 
 subtest 'plx --help', sub {
@@ -105,11 +123,17 @@ subtest 'plx --help', sub {
 };
 
 subtest 'plx --libs', sub {
-  ok 1;
+  new;
+  plx '--init';
+  plx '--libs';
+  is_deeply $out, [];
 };
 
 subtest 'plx --paths', sub {
-  ok 1;
+  new;
+  plx '--init';
+  plx '--paths';
+  is_deeply $out, [];
 };
 
 subtest 'plx --perl', sub {
