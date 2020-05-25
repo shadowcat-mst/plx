@@ -262,6 +262,7 @@ END
 sub _which {
   my ($self, $cmd, @args) = @_;
   $self->ensure_layout_config_dir;
+  barf "--cmd <cmd> <args>" unless $cmd;
 
   if ($fs->file_name_is_absolute($cmd)) {
     return (exec => $cmd => @args);
@@ -556,7 +557,7 @@ Follwed by being able to immediately (and even more concisely) run:
 which will execute C<perl -Ilib bin/myapp> with the correct C<perl> and the
 relevant L<local::lib> already in scope.
 
-If this seems of use to you, the L<QUICKSTART> is next and the L<ACTIONS>
+If this seems of use to you, the L</QUICKSTART> is next and the L</ACTIONS>
 section of this document lists the full capabilities of plx. Onwards!
 
 =head1 QUICKSTART
@@ -603,7 +604,7 @@ At which point, we're ready to go, and can run:
   plx prove              # to run all t/*.t test files
   plx -E 'say for @INC'  # to run a one liner within the layout
 
-To learn everything else plx is capable of, read on to the L<ACTIONS> section
+To learn everything else plx is capable of, read on to the L</ACTIONS> section
 coming next.
 
 Have fun!
