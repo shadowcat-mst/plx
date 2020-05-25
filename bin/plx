@@ -297,20 +297,22 @@ sub run_action_exec {
   exec(@exec) or barf "exec of (".join(' ', @exec).") failed: $!";
 }
 
+sub find_cpanm {
+  local %ENV = our %orig_env;
+  barf "Couldn't find cpanm in \$PATH"
+    unless my $cpanm = File::Which::which('cpanm');
+  $cpanm;
+}
+
 sub run_action_cpanm {
   my ($self, @args) = @_;
   $self->ensure_layout_config_dir;
-  my $cpanm = do {
-    local %ENV = our %orig_env;
-    barf "Couldn't find cpanm in \$PATH"
-      unless my $cpanm = File::Which::which('cpanm');
-    $cpanm;
-  };
+  my @cpanm = $self->find_cpanm;
   unless (@args and $args[0] =~ /^-[lL]/) {
     barf "--cpanm args must start with -l or -L to specify target local::lib";
   }
   $self->setup_env;
-  $self->run_action_perl($cpanm, @args);
+  $self->run_action_perl(@cpanm, @args);
 }
 
 sub run_action_config {
