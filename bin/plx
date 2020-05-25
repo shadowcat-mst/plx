@@ -301,12 +301,12 @@ use File::Spec::Functions 'catfile';
 
 my $in = $ARGV[0] || '.*';
 
-map say(basename($_)), grep /$in/, map glob(catfile($_, '*')), grep -d, qw(
-  ./bin
-  ./dev
-  ./local/bin
-  ./script
-  ./scripts
+say(basename($_)) for grep /$in/, map glob(catfile($_, '*')), grep -d, qw(
+  bin
+  dev
+  local/bin
+  script
+  scripts
 );
 EOF
     stderr <<END;
