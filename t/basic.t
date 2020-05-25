@@ -8,6 +8,9 @@ require './bin/plx';
 
 my ($out, $err, $log);
 
+my $dir = 't/var/basic';
+my $perl = Cwd::realpath($^X);
+
 sub plx {
   no warnings qw(once redefine);
   ($log, $out, $err) = ([], [], []);
@@ -18,69 +21,109 @@ sub plx {
   App::plx->new->run(@_);
 }
 
-my $dir = 't/var/basic';
-my $perl = Cwd::realpath($^X);
+sub new {
+  remove_tree $dir;
+  make_path $dir;
+  chdir $dir;
+}
 
-remove_tree $dir;
-make_path $dir;
-chdir $dir;
+subtest 'no .plx', sub {
+  new;
+  ok(do{ eval { plx "--$_" }; @$err }, "no init: --$_ failed") for qw(
+    base
+    cmd
+    commands
+    config
+    cpanm
+    libs
+    paths
+    perl
+  );
+};
 
-ok(do{ eval { plx "--$_" }; @$err }, "Can't run --$_ against empty dir") for qw(
-  base
-  cmd
-  commands
-  config
-  cpanm
-  libs
-  paths
-  perl
-);
+subtest 'plx --init', sub {
+  new;
+  plx '--init';
+  ok(-f '.plx/perl', 'file created');
+};
 
-plx '--version';
+subtest 'plx --actions', sub {
+  ok 1;
+};
 
-is_deeply $out, [ App::plx->VERSION ], '--version output';
+subtest 'plx --cmd', sub {
+  ok 1;
+};
 
-plx '--init';
+subtest 'plx --commands', sub {
+  new;
+  plx '--init';
+  plx qw(--commands);
+  is_deeply [$out, $err], [[],[]], 'commands list empty';
+};
 
-ok(-f '.plx/perl', 'file created');
+subtest 'plx --config', sub {
+  new;
+  plx '--init';
+  plx qw(--config perl set), $^X;
+  plx '--perl';
+  is_deeply $out, [ $perl ], '--perl output';
+  plx qw(--config libspec);
+  is_deeply $out, [
+    '25-local.ll  local',
+    '50-devel.ll  devel',
+    '75-lib.dir   lib',
+  ], 'libspec config';
+};
 
-plx '--perl';
+subtest 'plx --cpanm', sub {
+  new;
+  plx '--init';
+  eval { plx qw(--cpanm --help) };
+  like $err->[0], qr(-cpanm args must start with -l or -L), 'no cpanm w/o lib';
+  plx qw(--cpanm -llocal --help);
+  my ($_perl, $_cpanm) = (scalar(which('perl')), scalar(which('cpanm')));
+  is_deeply $log, [$_perl, $_cpanm, '-llocal', '--help'], 'cpanm ok';
+  plx qw(--config perl set), $^X;
+  plx qw(--cpanm -llocal --help);
+  is_deeply $log, [$perl, $_cpanm, '-llocal', '--help'], 'custom perl cpanm ok';
+};
 
-is_deeply $out, [ scalar which('perl') ], '--perl output';
+subtest 'plx --exec', sub {
+  ok 1;
+};
 
-plx qw(--config perl set), $^X;
-
-plx '--perl';
-
-is_deeply $out, [ $perl ], '--perl output';
-
-plx qw(--config libspec);
-
-is_deeply $out, [
-  '25-local.ll  local',
-  '50-devel.ll  devel',
-  '75-lib.dir   lib',
-], 'libspec config';
-
-{
+subtest 'plx --help', sub {
+  new;
+  plx '--init';
   no warnings qw(once redefine);
   require Pod::Usage;
   my $called_usage;
   local *Pod::Usage::pod2usage = sub { $called_usage = 1 };
   plx '--help';
   ok $called_usage, 'pod2usage fired for --help';
-}
+};
 
-plx qw(--commands);
+subtest 'plx --libs', sub {
+  ok 1;
+};
 
-is_deeply [$out, $err], [[],[]], 'commands list empty';
+subtest 'plx --paths', sub {
+  ok 1;
+};
 
-eval { plx qw(--cpanm --help) };
+subtest 'plx --perl', sub {
+  new;
+  plx '--init';
+  plx '--perl';
+  is_deeply $out, [ scalar which('perl') ], '--perl output';
+};
 
-like $err->[0], qr(-cpanm args must start with -l or -L), 'no cpanm w/o lib';
-
-plx qw(--cpanm -llocal --help);
-
-is_deeply $log, [$perl, scalar(which('cpanm')), '-llocal', '--help'], 'cpanm ok';
+subtest 'plx --version', sub {
+  new;
+  plx '--init';
+  plx '--version';
+  is_deeply $out, [ App::plx->VERSION ], '--version output';
+};
 
 done_testing;
