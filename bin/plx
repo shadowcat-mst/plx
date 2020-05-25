@@ -284,6 +284,39 @@ sub run_action_cmd {
   $self->run_action_exec($cmd, @args);
 }
 
+sub run_action_dev {
+  my ($self) = @_;
+  $self->ensure_layout_config_dir;
+
+  unless (-d (my $dir = $self->layout_dir('dev'))) {
+    mkdir($dir) or die "Couldn't make script dir ${dir}: $!";
+    my $file = $self->layout_file('dev', 'find');
+    open my $wfh, '>', $file or die "Couldn't open ${file}: $!";
+    print $wfh <<'EOF';
+#!perl
+
+use feature 'say';
+use File::Basename 'basename';
+use File::Spec::Functions 'catfile';
+
+my $in = $ARGV[0] || '.*';
+
+map say(basename($_)), grep /$in/, map glob(catfile($_, '*')), grep -d, qw(
+  ./bin
+  ./dev
+  ./local/bin
+  ./script
+  ./scripts
+);
+EOF
+    stderr <<END;
+.plx script directory [dev] initialised with script [find]:
+
+  plx find <arg>
+END
+  }
+}
+
 sub run_action_perl {
   my ($self, @call) = @_;
   $self->ensure_layout_config_dir;
@@ -621,6 +654,7 @@ a modified C<--cpanm> action that uses an inline C<App::cpanminus>.
   plx --init <perl>                      # Initialize layout config for .
   plx --base                             # Show layout base dir 
   plx --base <base> <action> <args>      # Run action with specified base dir
+  plx --dev                              # Initialize (dev) script dir
   
   plx --perl                             # Show layout perl binary
   plx --libs                             # Show layout $PERL5LIB entries
@@ -752,6 +786,19 @@ Without arguments, sugar for C<--config perl>.
 
 Otherwise, sets up the layout's environment variables and C<exec>s the
 layout's perl with the given options and arguments.
+
+=head2 --dev
+
+  plx --dev
+
+Initializes the ./dev script directory with ./dv/find.
+
+There are various common directories which are searched in order to resolve
+script execution including the C<dev> directory. You can add your own scripts
+to any of these directories and have C<plx> find and execute them. Unless the
+C<dev> directory already exists in the current working directory, this command
+creates that directory and seeds it with a C<find> script that helps you see
+what scripts are available across these directories.
 
 =head2 --cmd
 
