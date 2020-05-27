@@ -259,29 +259,41 @@ END
   );
 }
 
-sub run_action_cmd {
+sub _which {
   my ($self, $cmd, @args) = @_;
   $self->ensure_layout_config_dir;
 
   if ($fs->file_name_is_absolute($cmd)) {
-    return $self->run_action_exec($cmd => @args);
+    return (exec => $cmd => @args);
   }
 
   if ($cmd eq 'perl') {
-    return $self->run_action_perl(@args);
+    return (perl => @args);
   }
 
   if ($cmd =~ m{/} or $cmd =~ m{^-}) {
-    return $self->run_action_perl($cmd, @args);
+    return (perl => $cmd, @args);
   }
 
   foreach my $dirname ($self->cmd_search_path) {
     if (-f (my $file = $self->layout_file($dirname => $cmd))) {
-      return $self->run_action_perl($file, @args);
+      return (perl => $file, @args);
     }
   }
 
-  $self->run_action_exec($cmd, @args);
+  return (exec => $cmd, @args);
+}
+
+sub run_action_which {
+  my ($self, @args) = @_;
+  my ($action, @call) = $self->_which(@args);
+  say join(' ', 'plx', "--${action}", @call);
+}
+
+sub run_action_cmd {
+  my ($self, @args) = @_;
+  my ($action, @call) = $self->_which(@args);
+  $self->${\"run_action_${action}"}(@call);
 }
 
 sub run_action_perl {
@@ -653,6 +665,8 @@ a modified C<--cpanm> action that uses an inline C<App::cpanminus>.
       exists dev/<name>      -> --perl dev/<name> <args>
       exists bin/<name>      -> --perl bin/<name> <args>
       else                   -> --exec <name> <args>
+
+  plx --which <cmd>                      # Expands --cmd <cmd> without running
   
   plx <something> <args>                 # Shorthand for plx --cmd
   
@@ -755,7 +769,7 @@ layout's perl with the given options and arguments.
 
 =head2 --cmd
 
-  plx --cmd <cmd> <args>                 # DWIM command:
+  plx --cmd <cmd> <args>
   
     cmd = perl           -> --perl <args>
     cmd = -<flag>        -> --perl -<flag> <args>
@@ -776,6 +790,12 @@ anything with a non-perl shebang, one can add wrappers here ala:
   $ cat dev/prove
   #!/bin/sh
   exec prove -j8 "$@"
+
+=head2 --which
+
+  plx --which <cmd>
+
+Outputs the expanded form of a C<--cmd> invocation without running it.
 
 =head2 --config
 
