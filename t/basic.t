@@ -4,8 +4,6 @@ use File::Path qw(make_path remove_tree);
 use File::Which qw(which);
 use Test::More;
 
-require './bin/plx';
-
 my ($out, $err, $log);
 
 my $dir = 't/var/basic';
@@ -13,6 +11,8 @@ my $root = Cwd::getcwd;
 my $perl = Cwd::realpath($^X);
 my $path_perl = which('perl');
 my $path_cpanm = which('cpanm');
+
+require './bin/plx';
 
 sub plx {
   no warnings qw(once redefine);
