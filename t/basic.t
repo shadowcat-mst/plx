@@ -24,15 +24,21 @@ sub plx {
   App::plx->new->run(@_);
 }
 
-sub new {
+sub reset_var_dir {
   chdir $root;
   remove_tree $dir;
   make_path $dir;
   chdir $dir;
 }
 
+sub plx_subtest {
+  reset_var_dir;
+  plx '--init';
+  goto &subtest;
+}
+
 subtest 'no .plx', sub {
-  new;
+  reset_var_dir;
   ok(do{ eval { plx "--$_" }; @$err }, "no init: --$_ failed") for qw(
     base
     cmd
@@ -45,22 +51,16 @@ subtest 'no .plx', sub {
   );
 };
 
-subtest 'plx --init', sub {
-  new;
-  plx '--init';
+plx_subtest 'plx --init', sub {
   ok(-f '.plx/perl', 'file created');
 };
 
-subtest 'plx --actions', sub {
-  new;
-  plx '--init';
+plx_subtest 'plx --actions', sub {
   eval { plx '--actions' };
   like $err->[0], qr/No such action --actions/, 'not an action; see perldoc';
 };
 
-subtest 'plx --cmd', sub {
-  new;
-  plx '--init';
+plx_subtest 'plx --cmd', sub {
   plx qw(--cmd echo 'ehlo');
   is_deeply $log, ['echo', "'ehlo'"];
   plx qw(--cmd perl -MData::Dumper=Dumper -E 'Dumper(@ARGV)');
@@ -69,16 +69,12 @@ subtest 'plx --cmd', sub {
   # is_deeply $log, ['/usr/local/bin/psql', 'postgres'];
 };
 
-subtest 'plx --commands', sub {
-  new;
-  plx '--init';
+plx_subtest 'plx --commands', sub {
   plx qw(--commands);
   is_deeply [$out, $err], [[],[]], 'commands list empty';
 };
 
-subtest 'plx --config', sub {
-  new;
-  plx '--init';
+plx_subtest 'plx --config', sub {
   plx qw(--config perl set), $^X;
   plx '--perl';
   is_deeply $out, [ $perl ], '--perl output';
@@ -90,9 +86,7 @@ subtest 'plx --config', sub {
   ], 'libspec config';
 };
 
-subtest 'plx --cpanm', sub {
-  new;
-  plx '--init';
+plx_subtest 'plx --cpanm', sub {
   eval { plx qw(--cpanm --help) };
   like $err->[0], qr(-cpanm args must start with -l or -L), 'no cpanm w/o lib';
   plx qw(--cpanm -llocal --help);
@@ -102,18 +96,14 @@ subtest 'plx --cpanm', sub {
   is_deeply $log, [$perl, $path_cpanm, '-llocal', '--help'], 'custom perl cpanm ok';
 };
 
-subtest 'plx --exec', sub {
-  new;
-  plx '--init';
+plx_subtest 'plx --exec', sub {
   plx '--exec';
   ok !@$log && !@$out && !@$err;
   plx qw(--exec echo);
   is_deeply $log, ['echo'];
 };
 
-subtest 'plx --help', sub {
-  new;
-  plx '--init';
+plx_subtest 'plx --help', sub {
   no warnings qw(once redefine);
   require Pod::Usage;
   my $called_usage;
@@ -122,30 +112,22 @@ subtest 'plx --help', sub {
   ok $called_usage, 'pod2usage fired for --help';
 };
 
-subtest 'plx --libs', sub {
-  new;
-  plx '--init';
+plx_subtest 'plx --libs', sub {
   plx '--libs';
   is_deeply $out, [];
 };
 
-subtest 'plx --paths', sub {
-  new;
-  plx '--init';
+plx_subtest 'plx --paths', sub {
   plx '--paths';
   is_deeply $out, [];
 };
 
-subtest 'plx --perl', sub {
-  new;
-  plx '--init';
+plx_subtest 'plx --perl', sub {
   plx '--perl';
   is_deeply $out, [ scalar which('perl') ], '--perl output';
 };
 
-subtest 'plx --version', sub {
-  new;
-  plx '--init';
+plx_subtest 'plx --version', sub {
   plx '--version';
   is_deeply $out, [ App::plx->VERSION ], '--version output';
 };
