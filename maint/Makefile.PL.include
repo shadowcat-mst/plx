@@ -7,7 +7,7 @@ use Distar;
 
 author 'mst - Matt S. Trout (cpan:MSTROUT) <mst@shadowcat.co.uk>';
 
-manifest_include bin => 'plx';
+manifest_include bin => qr{plx.*};
 
 system('pod2markdown', 'bin/plx', 'README.md');
 system('maint/buildpack');
