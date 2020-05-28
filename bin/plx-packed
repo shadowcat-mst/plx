@@ -2957,11 +2957,12 @@ CPANM
   }
 }
 *App::plx::find_cpanm = sub { return ($0, "--spiner") };
+
 #!perl
 
 package App::plx;
 
-our $VERSION = '0.000001'; # 0.0.1
+our $VERSION = '0.009001'; # 0.9.1
 
 $VERSION = eval $VERSION;
 
@@ -3218,25 +3219,42 @@ END
   );
 }
 
-sub run_action_cmd {
+sub _which {
   my ($self, $cmd, @args) = @_;
   $self->ensure_layout_config_dir;
+  barf "--cmd <cmd> <args>" unless $cmd;
+
+  if ($fs->file_name_is_absolute($cmd)) {
+    return (exec => $cmd => @args);
+  }
 
   if ($cmd eq 'perl') {
-    return $self->run_action_perl(@args);
+    return (perl => @args);
   }
 
   if ($cmd =~ m{/} or $cmd =~ m{^-}) {
-    return $self->run_action_perl($cmd, @args);
+    return (perl => $cmd, @args);
   }
 
   foreach my $dirname ($self->cmd_search_path) {
     if (-f (my $file = $self->layout_file($dirname => $cmd))) {
-      return $self->run_action_perl($file, @args);
+      return (perl => $file, @args);
     }
   }
 
-  $self->run_action_exec($cmd, @args);
+  return (exec => $cmd, @args);
+}
+
+sub run_action_which {
+  my ($self, @args) = @_;
+  my ($action, @call) = $self->_which(@args);
+  say join(' ', 'plx', "--${action}", @call);
+}
+
+sub run_action_cmd {
+  my ($self, @args) = @_;
+  my ($action, @call) = $self->_which(@args);
+  $self->${\"run_action_${action}"}(@call);
 }
 
 sub run_action_perl {
@@ -3499,7 +3517,7 @@ Follwed by being able to immediately (and even more concisely) run:
 which will execute C<perl -Ilib bin/myapp> with the correct C<perl> and the
 relevant L<local::lib> already in scope.
 
-If this seems of use to you, the L<QUICKSTART> is next and the L<ACTIONS>
+If this seems of use to you, the L</QUICKSTART> is next and the L</ACTIONS>
 section of this document lists the full capabilities of plx. Onwards!
 
 =head1 QUICKSTART
@@ -3546,10 +3564,27 @@ At which point, we're ready to go, and can run:
   plx prove              # to run all t/*.t test files
   plx -E 'say for @INC'  # to run a one liner within the layout
 
-To learn everything else plx is capable of, read on to the L<ACTIONS> section
+To learn everything else plx is capable of, read on to the L</ACTIONS> section
 coming next.
 
 Have fun!
+
+=head1 BOOTSTRAP
+
+Under normal circumstances, one would run something like:
+
+  cpanm App::plx
+
+However, if you want a self-contained plx script without having a cpan
+installer available, you can run:
+
+  mkdir bin
+  wget https://raw.githubusercontent.com/shadowcat-mst/plx/master/bin/plx-packed -O bin/plx
+
+to get the current latest packed version.
+
+The packed version bundled L<local::lib> and L<File::Which>, and also includes
+a modified C<--cpanm> action that uses an inline C<App::cpanminus>.
 
 =head1 ACTIONS
 
@@ -3591,6 +3626,8 @@ Have fun!
       exists dev/<name>      -> --perl dev/<name> <args>
       exists bin/<name>      -> --perl bin/<name> <args>
       else                   -> --exec <name> <args>
+
+  plx --which <cmd>                      # Expands --cmd <cmd> without running
   
   plx <something> <args>                 # Shorthand for plx --cmd
   
@@ -3693,7 +3730,7 @@ layout's perl with the given options and arguments.
 
 =head2 --cmd
 
-  plx --cmd <cmd> <args>                 # DWIM command:
+  plx --cmd <cmd> <args>
   
     cmd = perl           -> --perl <args>
     cmd = -<flag>        -> --perl -<flag> <args>
@@ -3714,6 +3751,12 @@ anything with a non-perl shebang, one can add wrappers here ala:
   $ cat dev/prove
   #!/bin/sh
   exec prove -j8 "$@"
+
+=head2 --which
+
+  plx --which <cmd>
+
+Outputs the expanded form of a C<--cmd> invocation without running it.
 
 =head2 --config
 

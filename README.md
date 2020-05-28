@@ -78,7 +78,7 @@ Follwed by being able to immediately (and even more concisely) run:
 which will execute `perl -Ilib bin/myapp` with the correct `perl` and the
 relevant [local::lib](https://metacpan.org/pod/local::lib) already in scope.
 
-If this seems of use to you, the [QUICKSTART](https://metacpan.org/pod/QUICKSTART) is next and the [ACTIONS](https://metacpan.org/pod/ACTIONS)
+If this seems of use to you, the ["QUICKSTART"](#quickstart) is next and the ["ACTIONS"](#actions)
 section of this document lists the full capabilities of plx. Onwards!
 
 # QUICKSTART
@@ -125,10 +125,27 @@ At which point, we're ready to go, and can run:
     plx prove              # to run all t/*.t test files
     plx -E 'say for @INC'  # to run a one liner within the layout
 
-To learn everything else plx is capable of, read on to the [ACTIONS](https://metacpan.org/pod/ACTIONS) section
+To learn everything else plx is capable of, read on to the ["ACTIONS"](#actions) section
 coming next.
 
 Have fun!
+
+# BOOTSTRAP
+
+Under normal circumstances, one would run something like:
+
+    cpanm App::plx
+
+However, if you want a self-contained plx script without having a cpan
+installer available, you can run:
+
+    mkdir bin
+    wget https://raw.githubusercontent.com/shadowcat-mst/plx/master/bin/plx-packed -O bin/plx
+
+to get the current latest packed version.
+
+The packed version bundled [local::lib](https://metacpan.org/pod/local::lib) and [File::Which](https://metacpan.org/pod/File::Which), and also includes
+a modified `--cpanm` action that uses an inline `App::cpanminus`.
 
 # ACTIONS
 
@@ -170,6 +187,8 @@ Have fun!
         exists dev/<name>      -> --perl dev/<name> <args>
         exists bin/<name>      -> --perl bin/<name> <args>
         else                   -> --exec <name> <args>
+
+    plx --which <cmd>                      # Expands --cmd <cmd> without running
     
     plx <something> <args>                 # Shorthand for plx --cmd
     
@@ -272,7 +291,7 @@ layout's perl with the given options and arguments.
 
 ## --cmd
 
-    plx --cmd <cmd> <args>                 # DWIM command:
+    plx --cmd <cmd> <args>
     
       cmd = perl           -> --perl <args>
       cmd = -<flag>        -> --perl -<flag> <args>
@@ -293,6 +312,12 @@ anything with a non-perl shebang, one can add wrappers here ala:
     $ cat dev/prove
     #!/bin/sh
     exec prove -j8 "$@"
+
+## --which
+
+    plx --which <cmd>
+
+Outputs the expanded form of a `--cmd` invocation without running it.
 
 ## --config
 
