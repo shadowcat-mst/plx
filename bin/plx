@@ -234,7 +234,7 @@ sub run_action_commands {
   }
 }
 
-sub run_action_init {
+sub run_action_bareinit {
   my ($self, $perl) = @_;
   my $dir = $fs->catdir($self->{layout_base_dir}||Cwd::getcwd(), '.plx');
   if (-d $dir) {
@@ -250,6 +250,11 @@ END
   mkdir($dir) or barf "Couldn't create ${dir}: $!";
   $self->run_config_perl_set($perl||'perl');
   $self->write_config_entry(format => 1);
+}
+
+sub run_action_init {
+  my ($self, $perl) = @_;
+  $self->run_action_bareinit($perl);
   my $libspec_dir = $self->layout_config_dir('libspec');
   mkdir($libspec_dir) or barf "Couldn't create ${libspec_dir}: $!";
   $self->run_config_libspec_add(@$_) for (
@@ -689,6 +694,7 @@ a modified C<--cpanm> action that uses an inline C<App::cpanminus>.
   plx --version                          # Print plx version
 
   plx --init <perl>                      # Initialize layout config for .
+  plx --bareinit <perl>                  # Initialize bare layout config for .
   plx --base                             # Show layout base dir 
   plx --base <base> <action> <args>      # Run action with specified base dir
   
@@ -756,6 +762,10 @@ Creates the following libspec config:
   25-local.ll  local
   50-devel.ll  devel
   75-lib.dir   lib
+
+=head2 --bareinit
+
+Identical to C<--init> but creates no default configs except for C<perl>.
 
 =head2 --base
 
