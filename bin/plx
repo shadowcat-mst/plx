@@ -465,11 +465,14 @@ sub run {
   my ($self, $cmd, @args) = @_;
   $self->run_action_help if !$cmd or $cmd eq '--help';
   if ($cmd =~ s/^--//) {
-    my $method = join('_', 'run_action', split '-', $cmd);
-    if (my $code = $self->can($method)) {
-      return $self->$code(@args);
+    if ($cmd) {
+      my $method = join('_', 'run_action', split '-', $cmd);
+      if (my $code = $self->can($method)) {
+        return $self->$code(@args);
+      }
+      barf "No such action --${cmd}, see 'perldoc plx' for the full list";
     }
-    barf "No such action --${cmd}, see 'perldoc plx' for the full list";
+    $cmd = shift @args;
   }
   $self->ensure_layout_config_dir;
   return $self->run_action_cmd($cmd, @args);
