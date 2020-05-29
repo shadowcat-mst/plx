@@ -272,8 +272,23 @@ sub _which {
     return (perl => @args);
   }
 
-  if ($cmd =~ m{/} or $cmd =~ m{^-}) {
+  if ($cmd =~ m{/}) {
     return (perl => $cmd, @args);
+  }
+
+  if ($cmd =~ /^-/) {
+    my @optargs = ($cmd, @args);
+    foreach my $optarg (@optargs) {
+      next if $optarg =~ /^-/;
+      foreach my $dirname ($self->cmd_search_path) {
+        if (-f (my $file = $self->layout_file($dirname => $optarg))) {
+          $optarg = $file;
+          last;
+        }
+      }
+      last;
+    }
+    return (perl => @optargs);
   }
 
   foreach my $dirname ($self->cmd_search_path) {
