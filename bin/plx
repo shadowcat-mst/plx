@@ -463,7 +463,7 @@ sub run_action_base {
 
 sub run {
   my ($self, $cmd, @args) = @_;
-  $self->run_action_help if !$cmd or $cmd eq '--help';
+  $cmd ||= '--help';
   if ($cmd =~ s/^--//) {
     if ($cmd) {
       my $method = join('_', 'run_action', split '-', $cmd);
