@@ -462,6 +462,24 @@ sub run_action_libs { $self->show_env('PERL5LIB') }
 
 sub run_action_paths { $self->show_env('PATH') }
 
+sub run_action_env {
+  $self->ensure_layout_config_dir;
+  $self->setup_env;
+  my @env_change;
+  our %orig_env;
+  foreach my $key (sort +List::Util::uniq(keys %orig_env, keys %ENV)) {
+    my ($oval, $eval) = ($orig_env{$key}, $ENV{$key});
+    if (!defined($eval) or ($oval//'') ne $eval) {
+      push @env_change, [ $key, $eval ];
+    }
+  }
+  my $shelltype = local::lib->guess_shelltype;
+  my $shellbuild = "build_${shelltype}_env_declaration";
+  foreach my $change (@env_change) {
+    print +local::lib->$shellbuild(@$change);
+  }
+}
+
 sub run_action_help {
   require Pod::Usage;
   Pod::Usage::pod2usage();
@@ -551,6 +569,7 @@ App::plx - Perl Layout Executor
   plx --perl                             # Show layout perl binary
   plx --libs                             # Show layout $PERL5LIB entries
   plx --paths                            # Show layout additional $PATH entries
+  plx --env                              # Show layout env var changes
   plx --cpanm -llocal --installdeps .    # Run cpanm from outside $PATH
  
   plx perl <args>                        # Run perl within layout
@@ -701,6 +720,7 @@ a modified C<--cpanm> action that uses an inline C<App::cpanminus>.
   plx --perl                             # Show layout perl binary
   plx --libs                             # Show layout $PERL5LIB entries
   plx --paths                            # Show layout additional $PATH entries
+  plx --env                              # Show layout env var changes
   plx --cpanm -llocal --installdeps .    # Run cpanm from outside $PATH
 
   plx --config perl                      # Show perl binary
@@ -800,6 +820,11 @@ Prints the directories that will be added to C<PATH>, one per line.
 These will include the containing directory of the environment's perl binary
 if not already in C<PATH>, followed by the C<bin> directories of any C<ll>
 entries in the libspecs.
+
+=head2 --env
+
+Prints the changes that will be made to your environment variables, in a
+syntax that is (hopefully) correct for your current shell.
 
 =head2 --cpanm
 
