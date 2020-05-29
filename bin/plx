@@ -476,9 +476,48 @@ sub run_action_base {
   $self->new({ layout_base_dir => $base })->run(@chain);
 }
 
+sub _parse_multi {
+  my ($self, @args) = @_;
+  my @multi;
+  MULTI: while (@args) {
+    barf "Expected multi arg [, got: $args[0]" unless $args[0] eq '[';
+    shift @args;
+    my @action;
+    while (my $el = shift @args) {
+      push @multi, \@action and next MULTI if $el eq ']';
+      push @action, $el;
+    }
+    barf "Missing closing ] for multi";
+  }
+  return @multi;
+}
+
+sub run_action_multi {
+  my ($self, @args) = @_;
+  my @multi = $self->_parse_multi(@args);
+  $self->run_multi(@multi);
+}
+
+sub run_multi {
+  my ($self, @multi) = @_;
+  foreach my $multi (@multi) {
+    stderr '# '.join(' ', plx => @$multi);
+    $self->run(@$multi);
+  }
+}
+
+sub run_action_showmulti {
+  my ($self, @args) = @_;
+  my @multi = $self->_parse_multi(@args);
+  say join(' ', plx => @$_) for @multi;
+}
+
 sub run {
   my ($self, $cmd, @args) = @_;
   $cmd ||= '--help';
+  if ($cmd eq '[') {
+    return $self->run_action_multi($cmd, @args);
+  }
   if ($cmd =~ s/^--//) {
     if ($cmd) {
       my $method = join('_', 'run_action', split '-', $cmd);
@@ -690,6 +729,10 @@ a modified C<--cpanm> action that uses an inline C<App::cpanminus>.
   plx <something> <args>                 # Shorthand for plx --cmd
   
   plx --commands <filter>?               # List available commands
+  
+  plx --multi [ <cmd1> <args1> ] [ ... ] # Run multiple actions
+  plx --showmulti [ ... ] [ ... ]        # Show multiple action running
+  plx [ ... ] [ ... ]                    # Shorthand for plx --multi
 
 =head2 --help
 
@@ -894,6 +937,18 @@ Lists available commands, name first, then full path.
 If a filter argument is given, treats it as a fixed prefix to filter the
 command list, unless the filter is C</re/> in which case the slashes are
 stripped and the filter is treated as a regexp.
+
+=head1 --multi
+
+  plx --multi [ --init ] [ --config perl set 5.28.0 ]
+
+Runs multiple plx commands from a single invocation delimited by C<[ ... ]>.
+
+=head1 --showmulti
+
+  plx --showmulti [ --init ] [ --config perl set 5.28.0 ]
+
+Outputs approximate plx invocations that would be run by C<--multi>.
 
 =head1 AUTHOR
 
