@@ -305,11 +305,11 @@ sub run_action_installenv {
     unless -f (my $bashrc = $fs->catfile($ENV{HOME}, ".bashrc"));
   my $plx_bin = do {
     local %ENV = our %orig_env;
-    File::Which::which('plx');
+    File::Which::which('plx-packed');
   } || do {
     local %ENV = %ENV;
     $self->setup_env;
-    File::Which::which('plx');
+    File::Which::which('plx-packed');
   };
   barf "Couldn't find plx in PATH" unless $plx_bin;
   {
@@ -539,7 +539,7 @@ sub run_action_env {
   $self->setup_env;
   my @env_change;
   our %orig_env;
-  foreach my $key (sort +List::Util::uniq(keys %orig_env, keys %ENV)) {
+  foreach my $key (sort keys +{ %orig_env, %ENV }) {
     my ($oval, $eval) = ($orig_env{$key}, $ENV{$key});
     if (!defined($eval) or ($oval//'') ne $eval) {
       push @env_change, [ $key, $eval ];

@@ -3195,7 +3195,7 @@ sub run_action_commands {
   }
 }
 
-sub run_action_init {
+sub run_action_bareinit {
   my ($self, $perl) = @_;
   my $dir = $fs->catdir($self->{layout_base_dir}||Cwd::getcwd(), '.plx');
   if (-d $dir) {
@@ -3211,6 +3211,84 @@ END
   mkdir($dir) or barf "Couldn't create ${dir}: $!";
   $self->run_config_perl_set($perl||'perl');
   $self->write_config_entry(format => 1);
+}
+
+sub run_action_userinit {
+  my ($self, @args) = @_;
+  my @perl = (
+    (@args and !ref($args[0]) and $args[0] ne '[')
+      ? shift(@args)
+      : ()
+  );
+  barf "--userinit requires \$HOME to be set" unless $ENV{HOME};
+  $self->run_action_base(
+    $ENV{HOME},
+    '--multi' =>
+      [ '--bareinit', @perl ],
+      [ qw(--config libspec add 25.perl5.ll perl5) ],
+      (@args ? [ '--multi', @args ] : ()),
+  );
+}
+
+sub run_action_userstrap {
+  my ($self, @args) = @_;
+  my @perl = (
+    (@args and !ref($args[0]) and $args[0] ne '[')
+      ? shift(@args)
+      : ()
+  );
+  $self->run_action_userinit(
+    @perl,
+    [ '--installself' ],
+    [ '--installenv' ],
+    @args
+  );
+}
+
+sub run_action_installself {
+  my $last_ll;
+  foreach my $lib_spec (@{$self->layout_lib_specs}) {
+    my ($type, $path) = @$lib_spec;
+    $last_ll = $path if $type eq 'll';
+  }
+  barf "No local::lib in libspec config" unless $last_ll;
+  $self->run_action_cpanm(
+    "-l${last_ll}", '-n',
+    qw(App::cpanminus App::plx)
+  );
+}
+
+sub run_action_installenv {
+  $self->ensure_layout_config_dir;
+  barf "--installenv action currently assumes bash"
+    unless $ENV{SHELL} =~ /bash/;
+  barf "Couldn't find .bashrc"
+    unless -f (my $bashrc = $fs->catfile($ENV{HOME}, ".bashrc"));
+  my $plx_bin = do {
+    local %ENV = our %orig_env;
+    File::Which::which('plx-packed');
+  } || do {
+    local %ENV = %ENV;
+    $self->setup_env;
+    File::Which::which('plx-packed');
+  };
+  barf "Couldn't find plx in PATH" unless $plx_bin;
+  {
+    open my $fh, '<', $bashrc or die "Couldn't open ${bashrc} to read: $!";
+    if (my ($line) = grep /plx --env/, <$fh>) {
+      chomp($line);
+      stderr("Found line in .bashrc: $line");
+    }
+  }
+  my $base = $self->layout_base_dir;
+  stderr("Appending to .bashrc");
+  open my $fh, '>>', $bashrc or die "Couldn't open ${bashrc} to append: $!";
+  print $fh "\neval \$(${plx_bin} --base ${base} --env)\n";
+}
+
+sub run_action_init {
+  my ($self, $perl) = @_;
+  $self->run_action_bareinit($perl);
   my $libspec_dir = $self->layout_config_dir('libspec');
   mkdir($libspec_dir) or barf "Couldn't create ${libspec_dir}: $!";
   $self->run_config_libspec_add(@$_) for (
@@ -3233,8 +3311,23 @@ sub _which {
     return (perl => @args);
   }
 
-  if ($cmd =~ m{/} or $cmd =~ m{^-}) {
+  if ($cmd =~ m{/}) {
     return (perl => $cmd, @args);
+  }
+
+  if ($cmd =~ /^-/) {
+    my @optargs = ($cmd, @args);
+    foreach my $optarg (@optargs) {
+      next if $optarg =~ /^-/;
+      foreach my $dirname ($self->cmd_search_path) {
+        if (-f (my $file = $self->layout_file($dirname => $optarg))) {
+          $optarg = $file;
+          last;
+        }
+      }
+      last;
+    }
+    return (perl => @optargs);
   }
 
   foreach my $dirname ($self->cmd_search_path) {
@@ -3269,7 +3362,6 @@ sub run_action_exec {
   my ($self, @exec) = @_;
   $self->ensure_layout_config_dir;
   $self->setup_env;
-  no warnings 'exec';
   exec(@exec) or barf "exec of (".join(' ', @exec).") failed: $!";
 }
 
@@ -3288,7 +3380,7 @@ sub run_action_cpanm {
     barf "--cpanm args must start with -l or -L to specify target local::lib";
   }
   $self->setup_env;
-  $self->run_action_perl(@cpanm, @args);
+  system($self->layout_perl, @cpanm, @args);
 }
 
 sub run_action_config {
@@ -3403,6 +3495,24 @@ sub run_action_libs { $self->show_env('PERL5LIB') }
 
 sub run_action_paths { $self->show_env('PATH') }
 
+sub run_action_env {
+  $self->ensure_layout_config_dir;
+  $self->setup_env;
+  my @env_change;
+  our %orig_env;
+  foreach my $key (sort keys +{ %orig_env, %ENV }) {
+    my ($oval, $eval) = ($orig_env{$key}, $ENV{$key});
+    if (!defined($eval) or ($oval//'') ne $eval) {
+      push @env_change, [ $key, $eval ];
+    }
+  }
+  my $shelltype = local::lib->guess_shelltype;
+  my $shellbuild = "build_${shelltype}_env_declaration";
+  foreach my $change (@env_change) {
+    print +local::lib->$shellbuild(@$change);
+  }
+}
+
 sub run_action_help {
   require Pod::Usage;
   Pod::Usage::pod2usage();
@@ -3422,15 +3532,59 @@ sub run_action_base {
   $self->new({ layout_base_dir => $base })->run(@chain);
 }
 
+sub _parse_multi {
+  my ($self, @args) = @_;
+  my @multi;
+  MULTI: while (@args) {
+    barf "Expected multi arg [, got: $args[0]" unless $args[0] eq '[';
+    shift @args;
+    my @action;
+    while (my $el = shift @args) {
+      push @multi, \@action and next MULTI if $el eq ']';
+      push @action, $el;
+    }
+    barf "Missing closing ] for multi";
+  }
+  return @multi;
+}
+
+sub run_action_multi {
+  my ($self, @args) = @_;
+  return $self->run_multi(@args) if @args and ref($args[0]);
+  my @multi = $self->_parse_multi(@args);
+  $self->run_multi(@multi);
+}
+
+sub run_multi {
+  my ($self, @multi) = @_;
+  foreach my $multi (@multi) {
+    my @debug_multi = map +(ref($_) ? ('[', @$_, ']') : $_), @$multi;
+    stderr '# '.join(' ', plx => @debug_multi);
+    $self->run(@$multi);
+  }
+}
+
+sub run_action_showmulti {
+  my ($self, @args) = @_;
+  my @multi = $self->_parse_multi(@args);
+  say join(' ', plx => @$_) for @multi;
+}
+
 sub run {
   my ($self, $cmd, @args) = @_;
-  $self->run_action_help if !$cmd or $cmd eq '--help';
+  $cmd ||= '--help';
+  if ($cmd eq '[') {
+    return $self->run_action_multi($cmd, @args);
+  }
   if ($cmd =~ s/^--//) {
-    my $method = join('_', 'run_action', split '-', $cmd);
-    if (my $code = $self->can($method)) {
-      return $self->$code(@args);
+    if ($cmd) {
+      my $method = join('_', 'run_action', split '-', $cmd);
+      if (my $code = $self->can($method)) {
+        return $self->$code(@args);
+      }
+      barf "No such action --${cmd}, see 'perldoc plx' for the full list";
     }
-    barf "No such action --${cmd}, see 'perldoc plx' for the full list";
+    $cmd = shift @args;
   }
   $self->ensure_layout_config_dir;
   return $self->run_action_cmd($cmd, @args);
@@ -3450,6 +3604,7 @@ App::plx - Perl Layout Executor
   plx --perl                             # Show layout perl binary
   plx --libs                             # Show layout $PERL5LIB entries
   plx --paths                            # Show layout additional $PATH entries
+  plx --env                              # Show layout env var changes
   plx --cpanm -llocal --installdeps .    # Run cpanm from outside $PATH
  
   plx perl <args>                        # Run perl within layout
@@ -3593,12 +3748,14 @@ a modified C<--cpanm> action that uses an inline C<App::cpanminus>.
   plx --version                          # Print plx version
 
   plx --init <perl>                      # Initialize layout config for .
+  plx --bareinit <perl>                  # Initialize bare layout config for .
   plx --base                             # Show layout base dir 
   plx --base <base> <action> <args>      # Run action with specified base dir
   
   plx --perl                             # Show layout perl binary
   plx --libs                             # Show layout $PERL5LIB entries
   plx --paths                            # Show layout additional $PATH entries
+  plx --env                              # Show layout env var changes
   plx --cpanm -llocal --installdeps .    # Run cpanm from outside $PATH
 
   plx --config perl                      # Show perl binary
@@ -3633,6 +3790,15 @@ a modified C<--cpanm> action that uses an inline C<App::cpanminus>.
   plx <something> <args>                 # Shorthand for plx --cmd
   
   plx --commands <filter>?               # List available commands
+  
+  plx --multi [ <cmd1> <args1> ] [ ... ] # Run multiple actions
+  plx --showmulti [ ... ] [ ... ]        # Show multiple action running
+  plx [ ... ] [ ... ]                    # Shorthand for plx --multi
+  
+  plx --userinit <perl>                  # Init ~/.plx with ~/perl5 ll
+  plx --installself                      # Installs plx and cpanm into layout
+  plx --installenv                       # Appends plx --env call to .bashrc
+  plx --userstrap <perl>                 # userinit+installself+installenv
 
 =head2 --help
 
@@ -3656,6 +3822,10 @@ Creates the following libspec config:
   25-local.ll  local
   50-devel.ll  devel
   75-lib.dir   lib
+
+=head2 --bareinit
+
+Identical to C<--init> but creates no default configs except for C<perl>.
 
 =head2 --base
 
@@ -3690,6 +3860,11 @@ Prints the directories that will be added to C<PATH>, one per line.
 These will include the containing directory of the environment's perl binary
 if not already in C<PATH>, followed by the C<bin> directories of any C<ll>
 entries in the libspecs.
+
+=head2 --env
+
+Prints the changes that will be made to your environment variables, in a
+syntax that is (hopefully) correct for your current shell.
 
 =head2 --cpanm
 
@@ -3837,6 +4012,39 @@ Lists available commands, name first, then full path.
 If a filter argument is given, treats it as a fixed prefix to filter the
 command list, unless the filter is C</re/> in which case the slashes are
 stripped and the filter is treated as a regexp.
+
+=head2 --multi
+
+  plx --multi [ --init ] [ --config perl set 5.28.0 ]
+
+Runs multiple plx commands from a single invocation delimited by C<[ ... ]>.
+
+=head2 --showmulti
+
+  plx --showmulti [ --init ] [ --config perl set 5.28.0 ]
+
+Outputs approximate plx invocations that would be run by C<--multi>.
+
+=head2 --userinit
+
+Same as C<--init> but assumes C<$HOME> as base and sets up only a single
+libspec pointing at C<$HOME/perl5>.
+
+=head2 --installself
+
+Installs L<App::plx> and L<App::cpanminus> into the highest-numbered
+L<local::lib> within the layout.
+
+=head2 --installenv
+
+(bash only currently)
+
+Appends an eval line to set up the layout environment to the user's bashrc.
+
+=head2 --userstrap
+
+Convenience command for C<--userinit> plus C<--installself> plus
+C<--installenv>.
 
 =head1 AUTHOR
 

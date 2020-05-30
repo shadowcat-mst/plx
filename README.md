@@ -10,6 +10,7 @@ App::plx - Perl Layout Executor
      plx --perl                             # Show layout perl binary
      plx --libs                             # Show layout $PERL5LIB entries
      plx --paths                            # Show layout additional $PATH entries
+     plx --env                              # Show layout env var changes
      plx --cpanm -llocal --installdeps .    # Run cpanm from outside $PATH
     
      plx perl <args>                        # Run perl within layout
@@ -153,12 +154,14 @@ a modified `--cpanm` action that uses an inline `App::cpanminus`.
     plx --version                          # Print plx version
 
     plx --init <perl>                      # Initialize layout config for .
+    plx --bareinit <perl>                  # Initialize bare layout config for .
     plx --base                             # Show layout base dir 
     plx --base <base> <action> <args>      # Run action with specified base dir
     
     plx --perl                             # Show layout perl binary
     plx --libs                             # Show layout $PERL5LIB entries
     plx --paths                            # Show layout additional $PATH entries
+    plx --env                              # Show layout env var changes
     plx --cpanm -llocal --installdeps .    # Run cpanm from outside $PATH
 
     plx --config perl                      # Show perl binary
@@ -193,6 +196,15 @@ a modified `--cpanm` action that uses an inline `App::cpanminus`.
     plx <something> <args>                 # Shorthand for plx --cmd
     
     plx --commands <filter>?               # List available commands
+    
+    plx --multi [ <cmd1> <args1> ] [ ... ] # Run multiple actions
+    plx --showmulti [ ... ] [ ... ]        # Show multiple action running
+    plx [ ... ] [ ... ]                    # Shorthand for plx --multi
+    
+    plx --userinit <perl>                  # Init ~/.plx with ~/perl5 ll
+    plx --installself                      # Installs plx and cpanm into layout
+    plx --installenv                       # Appends plx --env call to .bashrc
+    plx --userstrap <perl>                 # userinit+installself+installenv
 
 ## --help
 
@@ -216,6 +228,10 @@ Creates the following libspec config:
     25-local.ll  local
     50-devel.ll  devel
     75-lib.dir   lib
+
+## --bareinit
+
+Identical to `--init` but creates no default configs except for `perl`.
 
 ## --base
 
@@ -250,6 +266,11 @@ Prints the directories that will be added to `PATH`, one per line.
 These will include the containing directory of the environment's perl binary
 if not already in `PATH`, followed by the `bin` directories of any `ll`
 entries in the libspecs.
+
+## --env
+
+Prints the changes that will be made to your environment variables, in a
+syntax that is (hopefully) correct for your current shell.
 
 ## --cpanm
 
@@ -397,6 +418,39 @@ Lists available commands, name first, then full path.
 If a filter argument is given, treats it as a fixed prefix to filter the
 command list, unless the filter is `/re/` in which case the slashes are
 stripped and the filter is treated as a regexp.
+
+## --multi
+
+    plx --multi [ --init ] [ --config perl set 5.28.0 ]
+
+Runs multiple plx commands from a single invocation delimited by `[ ... ]`.
+
+## --showmulti
+
+    plx --showmulti [ --init ] [ --config perl set 5.28.0 ]
+
+Outputs approximate plx invocations that would be run by `--multi`.
+
+## --userinit
+
+Same as `--init` but assumes `$HOME` as base and sets up only a single
+libspec pointing at `$HOME/perl5`.
+
+## --installself
+
+Installs [App::plx](https://metacpan.org/pod/App::plx) and [App::cpanminus](https://metacpan.org/pod/App::cpanminus) into the highest-numbered
+[local::lib](https://metacpan.org/pod/local::lib) within the layout.
+
+## --installenv
+
+(bash only currently)
+
+Appends an eval line to set up the layout environment to the user's bashrc.
+
+## --userstrap
+
+Convenience command for `--userinit` plus `--installself` plus
+`--installenv`.
 
 # AUTHOR
 
