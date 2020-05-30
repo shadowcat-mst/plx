@@ -3275,7 +3275,7 @@ sub run_action_installenv {
   barf "Couldn't find plx in PATH" unless $plx_bin;
   {
     open my $fh, '<', $bashrc or die "Couldn't open ${bashrc} to read: $!";
-    if (my ($line) = grep /plx --env/, <$fh>) {
+    if (my ($line) = grep /plx-packed/, <$fh>) {
       chomp($line);
       stderr("Found line in .bashrc: $line");
     }
