@@ -15,6 +15,7 @@ fragment () {
   use File::Which;
   my $cpanm = do { local (@ARGV, $/) = which("cpanm"); <> };
   $cpanm =~ s/^/  /mg;
+  $cpanm =~ s/"--> Working on/"--"."> Working on/;
   (my $out = $ARGV[0]) =~ s/__CPANM__/$cpanm/;
   print $out
 ' '
