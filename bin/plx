@@ -252,6 +252,43 @@ END
   $self->write_config_entry(format => 1);
 }
 
+sub run_action_userinit {
+  my ($self, @extra) = @_;
+  my @perl = ((@extra and $extra[0] ne '[') ? shift(@extra) : ());
+  barf "--userinit requires \$HOME to be set" unless $ENV{HOME};
+  $self->run_action_base(
+    $ENV{HOME},
+    '--multi' =>
+      [ '--bareinit', @perl ],
+      [ qw(--config libspec add 25.perl5.ll perl5) ],
+      (@extra ? [ '--multi', @extra ] : ()),
+  );
+}
+
+sub run_action_installenv {
+  $self->ensure_layout_config_dir;
+  barf "--installenv action currently assumes bash"
+    unless $ENV{SHELL} =~ /bash/;
+  barf "Couldn't find .bashrc"
+    unless -f (my $bashrc = $fs->catfile($ENV{HOME}, ".bashrc"));
+  my $plx_bin = do {
+    local %ENV = our %orig_env;
+    File::Which::which('plx');
+  };
+  barf "Couldn't find plx in PATH" unless $plx_bin;
+  {
+    open my $fh, '<', $bashrc or die "Couldn't open ${bashrc} to read: $!";
+    if (my ($line) = grep /plx --env/, <$fh>) {
+      chomp($line);
+      stderr("Found line in .bashrc: $line");
+    }
+  }
+  my $base = $self->layout_base_dir;
+  stderr("Appending to .bashrc");
+  open my $fh, '>>', $bashrc or die "Couldn't open ${bashrc} to append: $!";
+  print $fh "\neval \$(${plx_bin} --base ${base} --env)\n";
+}
+
 sub run_action_init {
   my ($self, $perl) = @_;
   $self->run_action_bareinit($perl);
@@ -517,6 +554,7 @@ sub _parse_multi {
 
 sub run_action_multi {
   my ($self, @args) = @_;
+  return $self->run_multi(@args) if @args and ref($args[0]);
   my @multi = $self->_parse_multi(@args);
   $self->run_multi(@multi);
 }
