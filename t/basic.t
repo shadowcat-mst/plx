@@ -86,6 +86,8 @@ plx_subtest 'plx --config', sub {
   ], 'libspec config';
 };
 
+if (0) {
+
 plx_subtest 'plx --cpanm', sub {
   eval { plx qw(--cpanm --help) };
   like $err->[0], qr(-cpanm args must start with -l or -L), 'no cpanm w/o lib';
@@ -95,6 +97,8 @@ plx_subtest 'plx --cpanm', sub {
   plx qw(--cpanm -llocal --help);
   is_deeply $log, [$perl, $path_cpanm, '-llocal', '--help'], 'custom perl cpanm ok';
 };
+
+}
 
 plx_subtest 'plx --exec', sub {
   plx '--exec';
