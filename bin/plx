@@ -15,10 +15,14 @@ use lib ();
 use Config;
 use File::Which ();
 use List::Util ();
+use local::lib ();
 
-BEGIN { our %orig_env = %ENV }
-use local::lib '--deactivate-all';
-BEGIN { delete @ENV{grep /^PERL/, keys %ENV} }
+BEGIN {
+  our %orig_env = %ENV;
+  { local $0 = $0 eq '-' ? 'plx' : $0;
+    local::lib->import('--deactivate-all') }
+  delete @ENV{grep /^PERL/, keys %ENV}
+}
 no lib @Config{qw(sitearch sitelibexp)};
 
 my $fs = 'File::Spec';
@@ -161,6 +165,7 @@ sub prepend_env {
 
 sub setup_env_for_ll {
   my ($self, $path) = @_;
+  local $0 = $0 eq '-' ? 'plx' : $0;
   local::lib->import($path);
 }
 

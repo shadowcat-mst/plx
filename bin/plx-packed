@@ -1869,9 +1869,7 @@ unshift @INC, bless \%fatpacked, $class;
 
 
 BEGIN {
-  if (@ARGV and $ARGV[0] eq "--spiner") {
-    shift @ARGV;
-    my $cpanm = <<'CPANM';
+  our $INLINE_CPANM = <<'CPANM';
   #!/usr/bin/perl
   #
   # This is a pre-compiled source code for the cpanm (cpanminus) program.
@@ -2949,6 +2947,9 @@ BEGIN {
   =cut
 
 CPANM
+  if (@ARGV and $ARGV[0] eq "--spiner") {
+    shift @ARGV;
+    my $cpanm = $INLINE_CPANM;
     $cpanm =~ s/^  //mg;
     $cpanm =~ s/\Qunless (caller)/if (1)/;
     warn "Running packed cpanm\n";
@@ -2957,8 +2958,21 @@ CPANM
     exit 0;
   }
 }
-*App::plx::find_cpanm = sub { return ($0, "--spiner") };
-
+local *App::plx::find_cpanm = sub {
+  return ($0, "--spiner") unless $0 eq "-";
+  require File::Temp;
+  # the tempfile will get unlinked when the local of this sub vanishes
+  use feature state;
+  state $tempfile = do {
+    my $fh = File::Temp->new;
+    my $cpanm = $INLINE_CPANM;
+    $cpanm =~ s/^  //mg;
+    print $fh $cpanm;
+    close $fh;
+    $fh;
+  };
+  return ($tempfile->filename);
+};
 #!perl
 
 package App::plx;
@@ -2976,10 +2990,14 @@ use lib ();
 use Config;
 use File::Which ();
 use List::Util ();
+use local::lib ();
 
-BEGIN { our %orig_env = %ENV }
-use local::lib '--deactivate-all';
-BEGIN { delete @ENV{grep /^PERL/, keys %ENV} }
+BEGIN {
+  our %orig_env = %ENV;
+  { local $0 = $0 eq '-' ? 'plx' : $0; 
+    local::lib->import('--deactivate-all') }
+  delete @ENV{grep /^PERL/, keys %ENV}
+}
 no lib @Config{qw(sitearch sitelibexp)};
 
 my $fs = 'File::Spec';
@@ -3122,6 +3140,7 @@ sub prepend_env {
 
 sub setup_env_for_ll {
   my ($self, $path) = @_;
+  local $0 = $0 eq '-' ? 'plx' : $0; 
   local::lib->import($path);
 }
 
