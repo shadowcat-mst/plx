@@ -317,6 +317,7 @@ sub run_action_installenv {
     if (my ($line) = grep /plx-packed/, <$fh>) {
       chomp($line);
       stderr("Found line in .bashrc: $line");
+      return;
     }
   }
   my $base = $self->layout_base_dir;
