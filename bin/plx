@@ -539,7 +539,7 @@ sub run_action_env {
   $self->setup_env;
   my @env_change;
   our %orig_env;
-  foreach my $key (sort keys %{ %orig_env, %ENV }) {
+  foreach my $key (sort(keys %{{ %orig_env, %ENV }})) {
     my ($oval, $eval) = ($orig_env{$key}, $ENV{$key});
     if (!defined($eval) or ($oval//'') ne $eval) {
       push @env_change, [ $key, $eval ];
