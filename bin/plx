@@ -390,7 +390,7 @@ sub run_action_which {
   say join(' ', 'plx', "--${action}", @call);
 }
 
-sub run_action_cmd {
+sub run_action_run {
   my ($self, @args) = @_;
   my ($action, @call) = $self->_which(@args);
   $self->${\"run_action_${action}"}(@call);
@@ -581,11 +581,12 @@ sub _parse_multi {
   my ($self, @args) = @_;
   my @multi;
   MULTI: while (@args) {
-    barf "Expected multi arg [, got: $args[0]" unless $args[0] eq '[';
+    barf "Expected multi arg {, got: $args[0]" unless $args[0] eq '{';
     shift @args;
     my @action;
+    /^--/ or s/^/--/ for @args ? $args[0] : ();
     while (my $el = shift @args) {
-      push @multi, \@action and next MULTI if $el eq ']';
+      push @multi, \@action and next MULTI if $el eq '}';
       push @action, $el;
     }
     barf "Missing closing ] for multi";
@@ -618,7 +619,7 @@ sub run_action_showmulti {
 sub run {
   my ($self, $cmd, @args) = @_;
   $cmd ||= '--help';
-  if ($cmd eq '[') {
+  if ($cmd eq '{') {
     return $self->run_action_multi($cmd, @args);
   }
   if ($cmd =~ s/^--//) {
@@ -632,7 +633,7 @@ sub run {
     $cmd = shift @args;
   }
   $self->ensure_layout_config_dir;
-  return $self->run_action_cmd($cmd, @args);
+  return $self->run_action_run($cmd, @args);
 }
 
 caller() ? 1 : __PACKAGE__->new->run(@ARGV);
@@ -818,7 +819,7 @@ a modified C<--cpanm> action that uses an inline C<App::cpanminus>.
   plx --exec <cmd> <args>                # exec()s with env vars set
   plx --perl <args>                      # Run perl with args
 
-  plx --cmd <cmd> <args>                 # DWIM command:
+  plx --run <cmd> <args>                 # DWIM command:
   
     cmd = perl           -> --perl <args>
     cmd = -<flag>        -> --perl -<flag> <args>
@@ -830,15 +831,15 @@ a modified C<--cpanm> action that uses an inline C<App::cpanminus>.
       exists bin/<name>      -> --perl bin/<name> <args>
       else                   -> --exec <name> <args>
 
-  plx --which <cmd>                      # Expands --cmd <cmd> without running
+  plx --which <cmd>                      # Expands --run <cmd> without running
   
-  plx <something> <args>                 # Shorthand for plx --cmd
+  plx <something> <args>                 # Shorthand for plx --run
   
   plx --commands <filter>?               # List available commands
   
-  plx --multi [ <cmd1> <args1> ] [ ... ] # Run multiple actions
-  plx --showmulti [ ... ] [ ... ]        # Show multiple action running
-  plx [ ... ] [ ... ]                    # Shorthand for plx --multi
+  plx --multi { <cmd1> <args1> } { ... } # Run multiple actions
+  plx --showmulti { ... } { ... }        # Show multiple action running
+  plx { ... } { ... }                    # Shorthand for plx --multi
   
   plx --userinit <perl>                  # Init ~/.plx with ~/perl5 ll
   plx --installself                      # Installs plx and cpanm into layout
@@ -949,9 +950,9 @@ Without arguments, sugar for C<--config perl>.
 Otherwise, sets up the layout's environment variables and C<exec>s the
 layout's perl with the given options and arguments.
 
-=head2 --cmd
+=head2 --run
 
-  plx --cmd <cmd> <args>
+  plx --run <cmd> <args>
   
     cmd = perl           -> --perl <args>
     cmd = -<flag>        -> --perl -<flag> <args>
@@ -977,7 +978,7 @@ anything with a non-perl shebang, one can add wrappers here ala:
 
   plx --which <cmd>
 
-Outputs the expanded form of a C<--cmd> invocation without running it.
+Outputs the expanded form of a C<--run> invocation without running it.
 
 =head2 --config
 
@@ -1060,13 +1061,15 @@ stripped and the filter is treated as a regexp.
 
 =head2 --multi
 
-  plx --multi [ --init ] [ --config perl set 5.28.0 ]
+  plx --multi { --init } { --config perl set 5.28.0 }
+  plx --multi { init } { config perl set 5.28.0 }
 
 Runs multiple plx commands from a single invocation delimited by C<[ ... ]>.
 
 =head2 --showmulti
 
-  plx --showmulti [ --init ] [ --config perl set 5.28.0 ]
+  plx --showmulti { --init } { --config perl set 5.28.0 }
+  plx --showmulti { init } { config perl set 5.28.0 }
 
 Outputs approximate plx invocations that would be run by C<--multi>.
 

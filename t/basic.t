@@ -41,7 +41,7 @@ subtest 'no .plx', sub {
   reset_var_dir;
   ok(do{ eval { plx "--$_" }; @$err }, "no init: --$_ failed") for qw(
     base
-    cmd
+    run
     commands
     config
     cpanm
@@ -60,12 +60,12 @@ plx_subtest 'plx --actions', sub {
   like $err->[0], qr/No such action --actions/, 'not an action; see perldoc';
 };
 
-plx_subtest 'plx --cmd', sub {
-  plx qw(--cmd echo 'ehlo');
+plx_subtest 'plx --run', sub {
+  plx qw(--run echo 'ehlo');
   is_deeply $log, ['echo', "'ehlo'"];
-  plx qw(--cmd perl -MData::Dumper=Dumper -E 'Dumper(@ARGV)');
+  plx qw(--run perl -MData::Dumper=Dumper -E 'Dumper(@ARGV)');
   is_deeply $log, [$path_perl, '-MData::Dumper=Dumper', '-E', "'Dumper(\@ARGV)'"];
-  # plx qw(--cmd /usr/local/bin/psql postgres);
+  # plx qw(--run /usr/local/bin/psql postgres);
   # is_deeply $log, ['/usr/local/bin/psql', 'postgres'];
 };
 
