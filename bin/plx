@@ -175,6 +175,7 @@ sub setup_env_for_dir {
 }
 
 sub setup_env {
+  $ENV{PERL_PLX_BASE} = $self->layout_base_dir;
   my ($site_libs) = $self->slurp_command(
     $self->layout_perl, '-MConfig', '-e',
       'print join(",", @Config{qw(sitearch sitelibexp)})'
@@ -501,7 +502,8 @@ sub show_config_libspec {
 
 sub run_named_config_add {
   my ($self, $type, $name, $value) = @_;
-  barf "plx --config ${type} add <name> <value>" unless $name and $value;
+  barf "plx --config ${type} add <name> <value>"
+    unless $name and defined($value);
   unless (-d (my $dir = $self->layout_config_dir($type))) {
     mkdir($dir) or die "Couldn't make config dir ${dir}: $!";
   }
