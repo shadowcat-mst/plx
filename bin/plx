@@ -6,8 +6,6 @@ our $VERSION = '0.901001'; # 0.901.1
 
 $VERSION = eval $VERSION;
 
-sub _raw_eval { eval $_[0] // die "Eval of $_[0] failed: $@" }
-
 use strict;
 use warnings;
 use File::Spec;
@@ -84,8 +82,14 @@ sub _build_layout_perl {
     $perl_config = $self->read_config_entry('perl');
     barf "Rehydration of perl from perl.spec failed" unless $perl_config;
   }
-  my @perl = $perl_config =~ /^\[/ ? @{_raw_eval($perl_config)} : $perl_config;
-  barf "perl binary ${$perl[0]} not executable" unless -x $perl[0];
+  my @perl = do {
+    if ($perl_config =~ s/^\$\s*//) {
+      ('sh', '-c', $perl_config.' "$@"', '--');
+    } else {
+      barf "perl binary ${perl_config} not executable" unless -x $perl_config;
+      $perl_config;
+    }
+  };
   return \@perl;
 }
 
@@ -480,7 +484,7 @@ sub run_config_perl_set {
   my ($self, $new_perl) = @_;
   barf "plx --config perl set <perl>" unless $new_perl;
   my $perl_spec = $new_perl;
-  unless ($new_perl =~ m{/}) {
+  unless ($new_perl =~ m{[\$/]}) {
     $new_perl = "perl${new_perl}" if $new_perl =~ /^5/;
     $new_perl =~ s/perl-5/perl5/; # perlbrew name to perl binary
     require File::Which;
@@ -492,7 +496,9 @@ sub run_config_perl_set {
       $new_perl = $self->resolve_perl_via_perlbrew($new_perl);
     }
   }
-  barf "Not executable: $new_perl" unless -x $new_perl;
+  unless ($new_perl =~ m/\$/) {
+    barf "Not executable: $new_perl" unless -x $new_perl;
+  }
   $self->write_config_entry('perl.spec' => $perl_spec);
   $self->write_config_entry(perl => $new_perl);
 }
