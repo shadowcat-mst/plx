@@ -461,7 +461,7 @@ sub resolve_perl_via_perlbrew {
   my ($self, $perl) = @_;
   stderr "Resolving perl '${perl}' via perlbrew";
   local %ENV = our %orig_env;
-  barf "Couldn't find perlbrew in \$PATH"
+  stderr "Couldn't find perlbrew in \$PATH", return
     unless my $perlbrew = File::Which::which('perlbrew');
   my @list = $self->slurp_command($perlbrew, 'list');
   barf join(
@@ -472,6 +472,23 @@ sub resolve_perl_via_perlbrew {
   );
   return $perl_path;
 }
+
+sub resolve_perl_via_plenv {
+  my ($self, $perl) = @_;
+  stderr "Resolving perl '${perl}' via plenv";
+  local %ENV = our %orig_env;
+  stderr "Couldn't find plenv in \$PATH", return
+    unless my $plenv = File::Which::which('plenv');
+  my @list = $self->slurp_command($plenv, 'versions');
+  barf join(
+    "\n", "No such plenv perl '${perl}', choose from:\n", @list, ''
+  ) unless grep $_ eq $perl, map /(\S+)/, @list;
+  my ($perl_path) = do { local $ENV{PLENV_VERSION} = $perl;
+                         $self->slurp_command( $plenv, qw(which perl) );
+                     };
+  return $perl_path;
+}
+
 
 sub run_config_perl_set {
   my ($self, $new_perl) = @_;
@@ -485,8 +502,13 @@ sub run_config_perl_set {
     if (my $resolved = File::Which::which($new_perl)) {
       $new_perl = $resolved;
     } else {
-      $new_perl =~ s/^perl5/perl-5/; # perl binary to perlbrew name
-      $new_perl = $self->resolve_perl_via_perlbrew($new_perl);
+        $new_perl = 
+        do {
+            # convert perl binary to perlbrew name
+            $self->resolve_perl_via_perlbrew( do { ( my $new_perl = $new_perl ) =~ s/^perl5/perl-5/ ; $new_perl } )
+              # try plenv, but use the actual spec the user passed.
+              // $self->resolve_perl_via_plenv($perl_spec);
+        } or barf "Couldn't find perl '${new_perl}'";
     }
   }
   barf "Not executable: $new_perl" unless -x $new_perl;
