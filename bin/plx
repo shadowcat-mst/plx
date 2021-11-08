@@ -345,16 +345,23 @@ sub run_action_init {
 }
 
 sub _which {
-  my ($self, $cmd, @args) = @_;
+  my ($self, @args) = @_;
   $self->ensure_layout_config_dir;
+
+  my @env;
+
+  push @env, shift @args while $args[0] =~ /^\w+=/;
+
+  my $cmd = shift @args;
+
   barf "--cmd <cmd> <args>" unless $cmd;
 
   if ($fs->file_name_is_absolute($cmd)) {
-    return (exec => $cmd => @args);
+    return (exec => @env => $cmd => @args);
   }
 
   if ($cmd eq 'perl') {
-    return (perl => @args);
+    return (perl => @env => @args);
   }
 
   if ($cmd =~ /^-/) {
@@ -369,16 +376,16 @@ sub _which {
       }
       last;
     }
-    return (perl => @optargs);
+    return (perl => @env => @optargs);
   }
 
   foreach my $dirname ($self->cmd_search_path) {
     if (-f (my $file = $self->layout_file($dirname => $cmd))) {
-      return (perl => $file, @args);
+      return (perl => @env => $file, @args);
     }
   }
 
-  return (exec => $cmd, @args);
+  return (exec => @env => $cmd, @args);
 }
 
 sub run_action_which {
@@ -397,13 +404,18 @@ sub run_action_perl {
   my ($self, @call) = @_;
   $self->ensure_layout_config_dir;
   return $self->show_config_perl unless @call;
-  $self->run_action_exec($self->layout_perl, @call);
+  my @env;
+  push @env, shift @call while $call[0] =~ /^\w+=/;
+  $self->run_action_exec(@env, $self->layout_perl, @call);
 }
 
 sub run_action_exec {
   my ($self, @exec) = @_;
   $self->ensure_layout_config_dir;
   $self->setup_env;
+
+  shift @exec and $ENV{$1} = $2 while $exec[0] =~ /^(\w+)=(.*)$/;
+
   exec(@exec) or barf "exec of (".join(' ', @exec).") failed: $!";
 }
 

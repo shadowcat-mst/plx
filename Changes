@@ -1,3 +1,4 @@
+  - Add support for prepending environment variables to --cmd/--perl/--exec
   - Make plx-packed handle being invoked via | perl -
 
 0.901001 - 2020-05-30
