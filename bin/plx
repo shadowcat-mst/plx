@@ -357,10 +357,6 @@ sub _which {
     return (perl => @args);
   }
 
-  if ($cmd =~ m{/}) {
-    return (perl => $cmd, @args);
-  }
-
   if ($cmd =~ /^-/) {
     my @optargs = ($cmd, @args);
     foreach my $optarg (@optargs) {
