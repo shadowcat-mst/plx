@@ -807,7 +807,7 @@ modules causing unexpected effects.
 
 Having done so, C<plx> then loads each env config entry and sets those
 variables - then prepends the C<plx> specific entries to both C<PATH> and
-C<PERL5LIB>. You can add env config entries with <L/--config>:
+C<PERL5LIB>. You can add env config entries with L</--config>:
 
   plx --config env add NAME VALUE
 
