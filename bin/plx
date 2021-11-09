@@ -2,7 +2,7 @@
 
 package App::plx;
 
-our $VERSION = '0.902001'; # 0.902.1
+our $VERSION = '0.902002'; # 0.902.2
 
 $VERSION = eval $VERSION;
 

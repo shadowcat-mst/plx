@@ -30,7 +30,7 @@ environments, using them can still be a little on the lumpy side. With
     perl -Ilocal/lib/perl -Ilib bin/myapp
     carton exec perl -Ilib bin/myapp
 
-With [App::perlbrew](https://metacpan.org/pod/App::perlbrew),
+With [App::perlbrew](https://metacpan.org/pod/App%3A%3Aperlbrew),
 
     perlbrew switch perl-5.28.0@libname
     perl -Ilib bin/myapp
@@ -40,7 +40,7 @@ With [https://github.com/tokuhirom/plenv](https://github.com/tokuhirom/plenv),
     plenv exec perl -Ilib bin/myapp
 
 and if you have more than one distinct layer of dependencies, while
-[local::lib](https://metacpan.org/pod/local::lib) will happily handle that, integrating it with everything else
+[local::lib](https://metacpan.org/pod/local%3A%3Alib) will happily handle that, integrating it with everything else
 becomes a pain in the buttocks.
 
 As a result of this, your not-so-humble author found himself regularly having
@@ -62,7 +62,7 @@ However, much like back in 2007 frustration with explaining to other
 developers how to set up [CPAN](https://metacpan.org/pod/CPAN) to install into `~/perl5` and how to
 set up one's environment variables to then find the modules so installed
 led to the exercise in rage driven development that first created
-[local::lib](https://metacpan.org/pod/local::lib), walking newbies through the creation and subsequent use of
+[local::lib](https://metacpan.org/pod/local%3A%3Alib), walking newbies through the creation and subsequent use of
 such a script was not the most enjoyable experience for anybody involved.
 
 Thus, the creation of this module to reduce the setup process to:
@@ -77,7 +77,7 @@ Follwed by being able to immediately (and even more concisely) run:
     plx myapp
 
 which will execute `perl -Ilib bin/myapp` with the correct `perl` and the
-relevant [local::lib](https://metacpan.org/pod/local::lib) already in scope.
+relevant [local::lib](https://metacpan.org/pod/local%3A%3Alib) already in scope.
 
 If this seems of use to you, the ["QUICKSTART"](#quickstart) is next and the ["ACTIONS"](#actions)
 section of this document lists the full capabilities of plx. Onwards!
@@ -114,7 +114,7 @@ library, then we'd also want to run:
 
     plx --config libspec add 40otherlib.dir ../Other-Lib/lib
 
-If we want our ~/perl [local::lib](https://metacpan.org/pod/local::lib) available within the plx environment, we
+If we want our ~/perl [local::lib](https://metacpan.org/pod/local%3A%3Alib) available within the plx environment, we
 can add that as the least significant libspec with:
 
     plx --config libspec add 00tilde.ll $HOME/perl5
@@ -145,8 +145,35 @@ installer available, you can run:
 
 to get the current latest packed version.
 
-The packed version bundled [local::lib](https://metacpan.org/pod/local::lib) and [File::Which](https://metacpan.org/pod/File::Which), and also includes
+The packed version bundles [local::lib](https://metacpan.org/pod/local%3A%3Alib) and [File::Which](https://metacpan.org/pod/File%3A%3AWhich), and also includes
 a modified `--cpanm` action that uses an inline `App::cpanminus`.
+
+# ENVIRONMENT
+
+`plx` actions that execute external commands all clear any existing
+environment variables that start with `PERL` to keep an encapsulated setup
+for commands being run within the layouts - and also set `PERL5OPT` to
+exclude `site_perl` (but not `vendor_perl`) to avoid locally installed
+modules causing unexpected effects.
+
+Having done so, `plx` then loads each env config entry and sets those
+variables - then prepends the `plx` specific entries to both `PATH` and
+`PERL5LIB`. You can add env config entries with ["--config"](#config):
+
+    plx --config env add NAME VALUE
+
+The changes that will be made to your environment can be output by calling
+the ["--env"](#env) command.
+
+Additionally, environment variable overrides may be provided to the
+["--cmd"](#cmd), ["--exec"](#exec) and ["--perl"](#perl) commands by providing them in
+ `NAME=VALUE` format:
+
+    # do not do this, it will be deleted
+    PERL_RL=Perl5 plx <something>
+
+    # do this instead, it will provide the environment variable to the command
+    plx PERL_RL=Perl5 <something>
 
 # ACTIONS
 
@@ -280,11 +307,11 @@ syntax that is (hopefully) correct for your current shell.
 Finds the `cpanm` binary in the `PATH` that `plx` was executed _from_,
 and executes it using the layout's perl binary and environment variables.
 
-Requires the user to specify a [local::lib](https://metacpan.org/pod/local::lib) to install into via `-l` or
+Requires the user to specify a [local::lib](https://metacpan.org/pod/local%3A%3Alib) to install into via `-l` or
 `-L` in order to avoid installing modules into unexpected places.
 
 Note that this action exists primarily for bootstrapping, and if you want
-to use a different installer such as [App::cpm](https://metacpan.org/pod/App::cpm), you'd install it with:
+to use a different installer such as [App::cpm](https://metacpan.org/pod/App%3A%3Acpm), you'd install it with:
 
     plx --cpanm -ldevel App::cpm
 
@@ -324,7 +351,7 @@ layout's perl with the given options and arguments.
         exists bin/<name>      -> --perl bin/<name> <args>
         else                   -> --exec <name> <args>
 
-**Note**: Much like the `devel` [local::lib](https://metacpan.org/pod/local::lib) is created to allow for the
+**Note**: Much like the `devel` [local::lib](https://metacpan.org/pod/local%3A%3Alib) is created to allow for the
 installation of out-of-band dependencies that aren't going to be needed in
 production, the `dev` directory is supported to allow for the easy addition
 of development time only sugar commands. Note that since `perl` will re-exec
@@ -390,7 +417,7 @@ The part of the name before the last `.` is not semantically significant to
 plx, but is used for asciibetical sorting of the libspec entries to determine
 in which order to apply them.
 
-The part after must be either `ll` for a [local::lib](https://metacpan.org/pod/local::lib), or `dir` for a bare
+The part after must be either `ll` for a [local::lib](https://metacpan.org/pod/local%3A%3Alib), or `dir` for a bare
 [lib](https://metacpan.org/pod/lib) directory.
 
 When loaded, the spec is (if relative) resolved to an absolute path relative
@@ -438,8 +465,8 @@ libspec pointing at `$HOME/perl5`.
 
 ## --installself
 
-Installs [App::plx](https://metacpan.org/pod/App::plx) and [App::cpanminus](https://metacpan.org/pod/App::cpanminus) into the highest-numbered
-[local::lib](https://metacpan.org/pod/local::lib) within the layout.
+Installs [App::plx](https://metacpan.org/pod/App%3A%3Aplx) and [App::cpanminus](https://metacpan.org/pod/App%3A%3Acpanminus) into the highest-numbered
+[local::lib](https://metacpan.org/pod/local%3A%3Alib) within the layout.
 
 ## --installenv
 
