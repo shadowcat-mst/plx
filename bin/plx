@@ -2,7 +2,7 @@
 
 package App::plx;
 
-our $VERSION = '0.901001'; # 0.901.1
+our $VERSION = '0.902003'; # 0.902.3
 
 $VERSION = eval $VERSION;
 
@@ -345,20 +345,27 @@ sub run_action_init {
 }
 
 sub _which {
-  my ($self, $cmd, @args) = @_;
+  my ($self, @args) = @_;
   $self->ensure_layout_config_dir;
+
+  my @env;
+
+  push @env, shift @args while $args[0] =~ /^\w+=/;
+
+  my $cmd = shift @args;
+
   barf "--cmd <cmd> <args>" unless $cmd;
 
   if ($fs->file_name_is_absolute($cmd)) {
-    return (exec => $cmd => @args);
+    return (exec => @env => $cmd => @args);
   }
 
   if ($cmd eq 'perl') {
-    return (perl => @args);
+    return (perl => @env => @args);
   }
 
   if ($cmd =~ m{/}) {
-    return (perl => $cmd, @args);
+    return (perl => @env => $cmd, @args);
   }
 
   if ($cmd =~ /^-/) {
@@ -373,16 +380,16 @@ sub _which {
       }
       last;
     }
-    return (perl => @optargs);
+    return (perl => @env => @optargs);
   }
 
   foreach my $dirname ($self->cmd_search_path) {
     if (-f (my $file = $self->layout_file($dirname => $cmd))) {
-      return (perl => $file, @args);
+      return (perl => @env => $file, @args);
     }
   }
 
-  return (exec => $cmd, @args);
+  return (exec => @env => $cmd, @args);
 }
 
 sub run_action_which {
@@ -391,7 +398,7 @@ sub run_action_which {
   say join(' ', 'plx', "--${action}", @call);
 }
 
-sub run_action_run {
+sub run_action_cmd {
   my ($self, @args) = @_;
   my ($action, @call) = $self->_which(@args);
   $self->${\"run_action_${action}"}(@call);
@@ -401,13 +408,18 @@ sub run_action_perl {
   my ($self, @call) = @_;
   $self->ensure_layout_config_dir;
   return $self->show_config_perl unless @call;
-  $self->run_action_exec($self->layout_perl, @call);
+  my @env;
+  push @env, shift @call while $call[0] =~ /^\w+=/;
+  $self->run_action_exec(@env, $self->layout_perl, @call);
 }
 
 sub run_action_exec {
   my ($self, @exec) = @_;
   $self->ensure_layout_config_dir;
   $self->setup_env;
+
+  shift @exec and $ENV{$1} = $2 while $exec[0] =~ /^(\w+)=(.*)$/;
+
   exec(@exec) or barf "exec of (".join(' ', @exec).") failed: $!";
 }
 
@@ -605,12 +617,11 @@ sub _parse_multi {
   my ($self, @args) = @_;
   my @multi;
   MULTI: while (@args) {
-    barf "Expected multi arg {, got: $args[0]" unless $args[0] eq '{';
+    barf "Expected multi arg [, got: $args[0]" unless $args[0] eq '[';
     shift @args;
     my @action;
-    /^--/ or s/^/--/ for @args ? $args[0] : ();
     while (my $el = shift @args) {
-      push @multi, \@action and next MULTI if $el eq '}';
+      push @multi, \@action and next MULTI if $el eq ']';
       push @action, $el;
     }
     barf "Missing closing ] for multi";
@@ -643,7 +654,7 @@ sub run_action_showmulti {
 sub run {
   my ($self, $cmd, @args) = @_;
   $cmd ||= '--help';
-  if ($cmd eq '{') {
+  if ($cmd eq '[') {
     return $self->run_action_multi($cmd, @args);
   }
   if ($cmd =~ s/^--//) {
@@ -657,7 +668,7 @@ sub run {
     $cmd = shift @args;
   }
   $self->ensure_layout_config_dir;
-  return $self->run_action_run($cmd, @args);
+  return $self->run_action_cmd($cmd, @args);
 }
 
 caller() ? 1 : __PACKAGE__->new->run(@ARGV);
@@ -809,8 +820,35 @@ installer available, you can run:
 
 to get the current latest packed version.
 
-The packed version bundled L<local::lib> and L<File::Which>, and also includes
+The packed version bundles L<local::lib> and L<File::Which>, and also includes
 a modified C<--cpanm> action that uses an inline C<App::cpanminus>.
+
+=head1 ENVIRONMENT
+
+C<plx> actions that execute external commands all clear any existing
+environment variables that start with C<PERL> to keep an encapsulated setup
+for commands being run within the layouts - and also set C<PERL5OPT> to
+exclude C<site_perl> (but not C<vendor_perl>) to avoid locally installed
+modules causing unexpected effects.
+
+Having done so, C<plx> then loads each env config entry and sets those
+variables - then prepends the C<plx> specific entries to both C<PATH> and
+C<PERL5LIB>. You can add env config entries with L</--config>:
+
+  plx --config env add NAME VALUE
+
+The changes that will be made to your environment can be output by calling
+the L</--env> command.
+
+Additionally, environment variable overrides may be provided to the
+L</--cmd>, L</--exec> and L</--perl> commands by providing them in
+ C<NAME=VALUE> format:
+
+  # do not do this, it will be deleted
+  PERL_RL=Perl5 plx <something>
+
+  # do this instead, it will provide the environment variable to the command
+  plx PERL_RL=Perl5 <something>
 
 =head1 ACTIONS
 
@@ -843,7 +881,7 @@ a modified C<--cpanm> action that uses an inline C<App::cpanminus>.
   plx --exec <cmd> <args>                # exec()s with env vars set
   plx --perl <args>                      # Run perl with args
 
-  plx --run <cmd> <args>                 # DWIM command:
+  plx --cmd <cmd> <args>                 # DWIM command:
   
     cmd = perl           -> --perl <args>
     cmd = -<flag>        -> --perl -<flag> <args>
@@ -855,15 +893,15 @@ a modified C<--cpanm> action that uses an inline C<App::cpanminus>.
       exists bin/<name>      -> --perl bin/<name> <args>
       else                   -> --exec <name> <args>
 
-  plx --which <cmd>                      # Expands --run <cmd> without running
+  plx --which <cmd>                      # Expands --cmd <cmd> without running
   
-  plx <something> <args>                 # Shorthand for plx --run
+  plx <something> <args>                 # Shorthand for plx --cmd
   
   plx --commands <filter>?               # List available commands
   
-  plx --multi { <cmd1> <args1> } { ... } # Run multiple actions
-  plx --showmulti { ... } { ... }        # Show multiple action running
-  plx { ... } { ... }                    # Shorthand for plx --multi
+  plx --multi [ <cmd1> <args1> ] [ ... ] # Run multiple actions
+  plx --showmulti [ ... ] [ ... ]        # Show multiple action running
+  plx [ ... ] [ ... ]                    # Shorthand for plx --multi
   
   plx --userinit <perl>                  # Init ~/.plx with ~/perl5 ll
   plx --installself                      # Installs plx and cpanm into layout
@@ -974,9 +1012,9 @@ Without arguments, sugar for C<--config perl>.
 Otherwise, sets up the layout's environment variables and C<exec>s the
 layout's perl with the given options and arguments.
 
-=head2 --run
+=head2 --cmd
 
-  plx --run <cmd> <args>
+  plx --cmd <cmd> <args>
   
     cmd = perl           -> --perl <args>
     cmd = -<flag>        -> --perl -<flag> <args>
@@ -1002,7 +1040,7 @@ anything with a non-perl shebang, one can add wrappers here ala:
 
   plx --which <cmd>
 
-Outputs the expanded form of a C<--run> invocation without running it.
+Outputs the expanded form of a C<--cmd> invocation without running it.
 
 =head2 --config
 
@@ -1085,15 +1123,13 @@ stripped and the filter is treated as a regexp.
 
 =head2 --multi
 
-  plx --multi { --init } { --config perl set 5.28.0 }
-  plx --multi { init } { config perl set 5.28.0 }
+  plx --multi [ --init ] [ --config perl set 5.28.0 ]
 
 Runs multiple plx commands from a single invocation delimited by C<[ ... ]>.
 
 =head2 --showmulti
 
-  plx --showmulti { --init } { --config perl set 5.28.0 }
-  plx --showmulti { init } { config perl set 5.28.0 }
+  plx --showmulti [ --init ] [ --config perl set 5.28.0 ]
 
 Outputs approximate plx invocations that would be run by C<--multi>.
 
