@@ -64,8 +64,8 @@ sub _build_layout_base_dir {
   while (@parts > 1) { # go back to one step before root at most
     $cand = $fs->catdir(@parts);
     return $cand if -d $fs->catdir($cand, '.plx');
-    if (-d $fs->catdir($cand, '.git')) { # don't escape current repository
-      $reason = ' due to .git directory';
+    if ( (my $vcs) = grep { -d $fs->catdir($cand, $_) } '.git', '.hg' ) { # don't escape current repository
+      $reason = " due to $vcs directory";
       last;
     }
     pop @parts;
@@ -921,7 +921,7 @@ Identical to C<--init> but creates no default configs except for C<perl>.
 Without arguments, shows the selected base dir - C<plx> finds this by
 checking for a C<.plx> directory in the current directory, and if not tries
 the parent directory, recursively. The search stops either when C<plx> finds
-a C<.git> directory, to avoid accidentally escaping a project repository, or
+a C<.git> or C<.hg> directory, to avoid accidentally escaping a project repository, or
 at the last directory before the root - i.e. C<plx> will test C</home> but
 not C</>.
 
