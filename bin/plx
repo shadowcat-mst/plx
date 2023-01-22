@@ -344,6 +344,36 @@ sub run_action_init {
   );
 }
 
+sub run_action_init_from_base {
+  my ($self, $from) = @_;
+
+  -d $from or barf "Couldn't find directory ${from} to initialize .plx";
+  -d $fs->catdir( $from, '.plx' )
+    or barf( "${from} doesn't contain a .plx directory");
+
+  my $plx = $fs->catdir($self->{layout_base_dir}||Cwd::getcwd(), '.plx');
+  -d $plx
+    and barf( "plx already initialized. won't overwrite" );
+  mkdir($plx) or barf "Couldn't create ${plx}: $!";
+
+  require File::Find; # core
+  require Archive::Tar; # core
+  my @files;
+  my $tar = Archive::Tar->new;
+  my $cwd = Cwd::getcwd();
+  eval {
+      no warnings 'once'; # avoid warning on $File::Find::name
+      chdir $from
+        or barf( "unable to change into directory $from" );
+      File::Find::find( sub { push @files, $File::Find::name }, '.plx' );
+      $tar->add_files( @files );
+  };
+  my $error = $@;
+  chdir $cwd or barf( "unable to change into directory $cwd" );
+  barf $error if length $error;
+  $tar->extract;
+}
+
 sub _which {
   my ($self, @args) = @_;
   $self->ensure_layout_config_dir;
@@ -834,6 +864,7 @@ L</--cmd>, L</--exec> and L</--perl> commands by providing them in
   plx --version                          # Print plx version
 
   plx --init <perl>                      # Initialize layout config for .
+  plx --init-from-base <base>            # Copy the layout config for <base> into .
   plx --bareinit <perl>                  # Initialize bare layout config for .
   plx --base                             # Show layout base dir 
   plx --base <base> <action> <args>      # Run action with specified base dir
@@ -908,6 +939,12 @@ Creates the following libspec config:
   25-local.ll  local
   50-devel.ll  devel
   75-lib.dir   lib
+
+=head2 --init-from-base
+
+  plx --init-from-base <base>
+
+Initialize the layout from the configuration in the selected base directory.
 
 =head2 --bareinit
 
