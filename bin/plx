@@ -770,7 +770,7 @@ next run:
   plx --init
 
 If we want a different perl - say, we have a C<perl5.30.1> in our path, or
-a C<perl-5.30.1> built in perlbrew, we'd instead run:
+a C<perl-5.30.1> built in perlbrew or plenv, we'd instead run:
 
   plx --init 5.30.1
 
@@ -868,7 +868,7 @@ L</--cmd>, L</--exec> and L</--perl> commands by providing them in
 
   plx --config perl                      # Show perl binary
   plx --config perl set /path/to/perl    # Select exact perl binary
-  plx --config perl set perl-5.xx.y      # Select perl via $PATH or perlbrew
+  plx --config perl set perl-5.xx.y      # Select perl via $PATH, perlbrew, or plenv
 
   plx --config libspec                   # Show lib specifications
   plx --config libspec add <name> <path> # Add lib specification
@@ -917,12 +917,12 @@ Prints out the usage information (i.e. the L</SYNOPSIS>) for plx.
   plx --init                     # resolve 'perl' in $PATH
   plx --init perl                # (ditto)
   plx --init 5.28.0              # looks for perl5.28.0 in $PATH
-                                 # or perl-5.28.0 in perlbrew
+                                 # or perl-5.28.0 in perlbrew or plenv
   plx --init /path/to/some/perl  # uses the absolute path directly
 
 Initializes the layout.
 
-If a perl name is passed, attempts to resolve it via C<$PATH> and C<perlbrew>
+If a perl name is passed, attempts to resolve it via C<$PATH>, C<perlbrew>, or C<plenv>
 and sets the result as the layout perl; if not looks for just C<perl>.
 
 Creates the following libspec config:
@@ -1067,7 +1067,10 @@ Third, if the (current) spec begins C<perl5>, we replace it with C<perl-5>.
 Fourth, we search C<$PATH> for a C<perlbrew> binary, and ask it if it has a
 perl named after the spec, and record that if so.
 
-Fifth, we shrug and hope the user can come up with an absolute path next time.
+Fifth, we search C<$PATH> for a C<plenv> binary, and ask it if it has a
+perl named after the spec, and record that if so.
+
+Sixth, we shrug and hope the user can come up with an absolute path next time.
 
 B<Note:> The original spec passed to C<set> is recorded in C<.plx/perl.spec>,
 so if you intend to share the C<.plx> directory across multiple machines via
